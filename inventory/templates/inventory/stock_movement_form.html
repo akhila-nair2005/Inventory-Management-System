@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% block title %}Record Stock Movement{% endblock %}
+{% block content %}
+
+<h2 class="mb-4">Record Stock Movement</h2>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h6>Scan Product Barcode</h6>
+        <div id="reader" style="width: 100%; max-width: 400px;"></div>
+        <div id="scan-result" class="mt-2"></div>
+    </div>
+</div>
+
+<form method="post" class="col-md-6">
+    {% csrf_token %}
+    <div class="mb-3">
+        <label class="form-label">Product</label>
+        <select name="product" id="product-select" class="form-select" required>
+            <option value="">-- Select or scan barcode --</option>
+            {% for p in products %}
+                <option value="{{ p.id }}">{{ p.name }} (Current: {{ p.quantity }})</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Movement Type</label>
+        <select name="movement_type" class="form-select" required>
+            <option value="IN">Stock In (Restock)</option>
+            <option value="OUT">Stock Out</option>
+        </select>
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Quantity</label>
+        <input type="number" name="quantity" class="form-control" min="1" required>
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Note (optional)</label>
+        <input type="text" name="note" class="form-control">
+    </div>
+    <button type="submit" class="btn btn-primary">Save</button>
+</form>
+
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+    const scanResult = document.getElementById('scan-result');
+    const productSelect = document.getElementById('product-select');
+    let scannedRecently = false;
+
+    function onScanSuccess(decodedText) {
+        if (scannedRecently) return;
+        scannedRecently = true;
+
+        fetch(`/products/barcode/lookup/?code=${encodeURIComponent(decodedText)}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.found) {
+                    productSelect.value = data.product_id;
+                    scanResult.innerHTML = `<div class="alert alert-success py-1">Selected: ${data.name}</div>`;
+                } else {
+                    scanResult.innerHTML = `<div class="alert alert-danger py-1">No product matches "${decodedText}"</div>`;
+                }
+                setTimeout(() => { scannedRecently = false; }, 1500);
+            });
+    }
+
+    const html5QrCode = new Html5Qrcode("reader");
+    html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 150 } },
+        onScanSuccess
+    ).catch(err => {
+        scanResult.innerHTML = `<div class="alert alert-warning py-1">Camera unavailable: ${err}</div>`;
+    });
+</script>
+
+{% endblock %}

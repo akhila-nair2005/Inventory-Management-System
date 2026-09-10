@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+{% block title %}Demand Forecasting{% endblock %}
+{% block content %}
+
+<h2 class="mb-4">Demand Forecasting</h2>
+
+<form method="get" class="row g-2 mb-4">
+    <div class="col-md-6">
+        <select name="product" class="form-select" onchange="this.form.submit()">
+            <option value="">-- Select a Product --</option>
+            {% for p in products %}
+                <option value="{{ p.id }}" {% if selected_product.id == p.id %}selected{% endif %}>
+                    {{ p.name }} ({{ p.sku }})
+                </option>
+            {% endfor %}
+        </select>
+    </div>
+</form>
+
+{% if selected_product %}
+    <h4>Forecast for {{ selected_product.name }}</h4>
+
+    {% if forecast_data.linear_regression.error or forecast_data.moving_average.error %}
+        <div class="alert alert-warning">
+            Not enough historical stock movement data to generate a forecast for this product.
+        </div>
+    {% else %}
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="card-title">Moving Average</h6>
+                        <p>Daily average: <strong>{{ forecast_data.moving_average.daily_avg }}</strong> units</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="card-title">Linear Regression</h6>
+                        <p>Trend slope: <strong>{{ forecast_data.linear_regression.slope }}</strong>
+                            {% if forecast_data.linear_regression.slope > 0 %}
+                                <span class="badge bg-danger">Rising demand</span>
+                            {% elif forecast_data.linear_regression.slope < 0 %}
+                                <span class="badge bg-success">Falling demand</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Stable</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <canvas id="forecastChart" height="100"></canvas>
+
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+        <script>
+            const ctx = document.getElementById('forecastChart').getContext('2d');
+            const maForecast = {{ forecast_data.moving_average.forecast|default:"[]"|safe }};
+            const lrForecast = {{ forecast_data.linear_regression.forecast|default:"[]"|safe }};
+            const labels = maForecast.map((_, i) => `Day ${i + 1}`);
+
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Moving Average Forecast',
+                            data: maForecast,
+                            borderColor: '#0d6efd',
+                            tension: 0.3,
+                        },
+                        {
+                            label: 'Linear Regression Forecast',
+                            data: lrForecast,
+                            borderColor: '#dc3545',
+                            tension: 0.3,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { title: { display: true, text: 'Next 7 Days — Predicted Daily Demand' } }
+                }
+            });
+        </script>
+    {% endif %}
+{% else %}
+    <p class="text-muted">Select a product above to view its demand forecast.</p>
+{% endif %}
+
+{% endblock %}

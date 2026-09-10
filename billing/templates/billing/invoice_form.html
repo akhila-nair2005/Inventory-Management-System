@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+{% block title %}New Invoice{% endblock %}
+{% block content %}
+
+<h2 class="mb-4">New Invoice</h2>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h6>Scan Product to Add</h6>
+        <div id="reader" style="width: 100%; max-width: 400px;"></div>
+        <div id="scan-result" class="mt-2"></div>
+    </div>
+</div>
+
+<form method="post" id="invoice-form">
+    {% csrf_token %}
+    <div class="mb-3">
+        <label class="form-label">Existing Customer</label>
+        <select name="customer" class="form-select">
+            <option value="">-- Walk-in / None --</option>
+            {% for c in customers %}
+                <option value="{{ c.id }}">{{ c.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Or New Customer Name</label>
+        <input type="text" name="new_customer_name" class="form-control" placeholder="Leave blank if selecting above">
+    </div>
+
+    <hr>
+    <h5>Items</h5>
+    <div id="item-rows">
+        <div class="row mb-2 item-row">
+            <div class="col-md-6">
+                <select name="product" class="form-select product-dropdown" required>
+                    <option value="">-- Select Product --</option>
+                    {% for p in products %}
+                        <option value="{{ p.id }}">{{ p.name }} (Stock: {{ p.quantity }}, ₹{{ p.price }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <input type="number" name="quantity" class="form-control qty-input" placeholder="Quantity" min="1" value="1" required>
+            </div>
+        </div>
+    </div>
+    <button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="addRow()">+ Add another item</button>
+
+    <div>
+        <button type="submit" class="btn btn-primary">Create Invoice</button>
+    </div>
+</form>
+
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+    const scanResult = document.getElementById('scan-result');
+    let scannedRecently = false;
+
+    function addRow() {
+        const container = document.getElementById('item-rows');
+        const newRow = container.children[0].cloneNode(true);
+        newRow.querySelectorAll('input').forEach(i => i.value = '1');
+        newRow.querySelectorAll('select').forEach(s => s.selectedIndex = 0);
+        container.appendChild(newRow);
+        return newRow;
+    }
+
+    function addScannedProduct(productId, name) {
+        const rows = document.querySelectorAll('.item-row');
+        let targetRow = null;
+        for (const row of rows) {
+            const select = row.querySelector('.product-dropdown');
+            if (!select.value) {
+                targetRow = row;
+                break;
+            }
+        }
+        if (!targetRow) {
+            targetRow = addRow();
+        }
+        targetRow.querySelector('.product-dropdown').value = productId;
+        scanResult.innerHTML = `<div class="alert alert-success py-1">Added: ${name}</div>`;
+    }
+
+    function onScanSuccess(decodedText) {
+        if (scannedRecently) return;
+        scannedRecently = true;
+
+        fetch(`/products/barcode/lookup/?code=${encodeURIComponent(decodedText)}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.found) {
+                    addScannedProduct(data.product_id, data.name);
+                } else {
+                    scanResult.innerHTML = `<div class="alert alert-danger py-1">No product matches "${decodedText}"</div>`;
+                }
+                setTimeout(() => { scannedRecently = false; }, 1500);
+            });
+    }
+
+    const html5QrCode = new Html5Qrcode("reader");
+    html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 150 } },
+        onScanSuccess
+    ).catch(err => {
+        scanResult.innerHTML = `<div class="alert alert-warning py-1">Camera unavailable: ${err}</div>`;
+    });
+</script>
+
+{% endblock %}

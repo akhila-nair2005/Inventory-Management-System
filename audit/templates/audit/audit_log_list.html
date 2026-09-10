@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block title %}Audit Logs{% endblock %}
+{% block content %}
+
+<h2 class="mb-4">Audit Logs</h2>
+
+<form method="get" class="row g-2 mb-4">
+    <div class="col-md-3">
+        <select name="action" class="form-select" onchange="this.form.submit()">
+            <option value="">All Actions</option>
+            <option value="CREATE" {% if action_filter == 'CREATE' %}selected{% endif %}>Create</option>
+            <option value="UPDATE" {% if action_filter == 'UPDATE' %}selected{% endif %}>Update</option>
+            <option value="DELETE" {% if action_filter == 'DELETE' %}selected{% endif %}>Delete</option>
+        </select>
+    </div>
+    <div class="col-md-3">
+        <select name="model" class="form-select" onchange="this.form.submit()">
+            <option value="">All Models</option>
+            <option value="Product" {% if model_filter == 'Product' %}selected{% endif %}>Product</option>
+            <option value="Invoice" {% if model_filter == 'Invoice' %}selected{% endif %}>Invoice</option>
+        </select>
+    </div>
+</form>
+
+<table class="table table-bordered table-sm">
+    <thead class="table-dark">
+        <tr>
+            <th>Action</th>
+            <th>Model</th>
+            <th>Object ID</th>
+            <th>Description</th>
+            <th>User</th>
+            <th>Timestamp</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for log in logs %}
+        <tr>
+            <td>
+                {% if log.action == 'CREATE' %}<span class="badge bg-success">Create</span>
+                {% elif log.action == 'UPDATE' %}<span class="badge bg-warning text-dark">Update</span>
+                {% else %}<span class="badge bg-danger">Delete</span>{% endif %}
+            </td>
+            <td>{{ log.model_name }}</td>
+            <td>{{ log.object_id }}</td>
+            <td>{{ log.object_repr }}</td>
+            <td>{{ log.user|default:"System" }}</td>
+            <td>{{ log.timestamp|date:"d M Y, H:i:s" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-center">No audit log entries found.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<p class="text-muted">Showing latest 200 entries.</p>
+
+{% endblock %}

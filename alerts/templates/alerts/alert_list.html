@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block title %}Stock Alerts{% endblock %}
+{% block content %}
+
+<h2 class="mb-4">Stock Alerts</h2>
+
+<h5>Active Alerts</h5>
+<table class="table table-bordered">
+    <thead class="table-dark">
+        <tr>
+            <th>Product</th>
+            <th>Quantity at Alert</th>
+            <th>Reorder Level</th>
+            <th>Created</th>
+            {% if user.role == 'ADMIN' or user.role == 'MANAGER' %}<th></th>{% endif %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for alert in alerts %}
+        <tr class="table-danger">
+            <td>{{ alert.product.name }}</td>
+            <td>{{ alert.quantity_at_alert }}</td>
+            <td>{{ alert.reorder_level_at_alert }}</td>
+            <td>{{ alert.created_at|date:"d M Y, H:i" }}</td>
+            {% if user.role == 'ADMIN' or user.role == 'MANAGER' %}
+            <td>
+                <a href="{% url 'resolve_alert' alert.pk %}" class="btn btn-sm btn-success">Mark Resolved</a>
+            </td>
+            {% endif %}
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="text-center">No active alerts. All stock levels healthy.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h5 class="mt-4">Recently Resolved</h5>
+<table class="table table-bordered table-sm">
+    <thead class="table-secondary">
+        <tr>
+            <th>Product</th>
+            <th>Resolved At</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for alert in resolved_alerts %}
+        <tr>
+            <td>{{ alert.product.name }}</td>
+            <td>{{ alert.resolved_at|date:"d M Y, H:i" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="2" class="text-center">None yet.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% endblock %}
