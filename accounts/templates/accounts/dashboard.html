@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+
+<h2 class="mb-4">Welcome, {{ user.username }} <span class="badge bg-secondary">{{ user.role }}</span></h2>
+
+{% if user.role == 'ADMIN' %}
+    <div class="alert alert-info">
+        Admin view — full access to all inventory, billing, alerts, and audit logs.
+        <a href="/admin/" class="btn btn-sm btn-outline-primary ms-2">Go to Admin Panel</a>
+    </div>
+    <div class="col-md-3 mb-3">
+    <a href="{% url 'audit_log_list' %}" class="text-decoration-none">
+        <div class="card"><div class="card-body">
+            <h5 class="card-title">Audit Logs</h5>
+            <p class="card-text">View system activity history.</p>
+        </div></div>
+    </a>
+</div>
+{% elif user.role == 'MANAGER' %}
+    <div class="alert alert-info">
+        Manager view — manage inventory, invoices, and resolve stock alerts.
+    </div>
+{% else %}
+    <div class="alert alert-info">
+        Staff view — record stock movements and process sales.
+    </div>
+{% endif %}
+{% if user.role == 'ADMIN' or user.role == 'MANAGER' %}
+<div class="col-md-3 mb-3">
+    <a href="{% url 'purchase_order_list' %}" class="text-decoration-none">
+        <div class="card"><div class="card-body">
+            <h5 class="card-title">Purchase Orders</h5>
+            <p class="card-text">Order stock from suppliers.</p>
+        </div></div>
+    </a>
+</div>
+{% endif %}
+
+<div class="row mt-4">
+    <div class="col-md-3 mb-3">
+        <a href="{% url 'product_list' %}" class="text-decoration-none">
+            <div class="card"><div class="card-body">
+                <h5 class="card-title">Products</h5>
+                <p class="card-text">View and manage inventory items.</p>
+            </div></div>
+        </a>
+    </div>
+    <div class="col-md-3 mb-3">
+        <a href="{% url 'invoice_list' %}" class="text-decoration-none">
+            <div class="card"><div class="card-body">
+                <h5 class="card-title">Invoices</h5>
+                <p class="card-text">Create and view sales invoices.</p>
+            </div></div>
+        </a>
+    </div>
+    <div class="col-md-3 mb-3">
+        <a href="{% url 'alert_list' %}" class="text-decoration-none">
+            <div class="card"><div class="card-body">
+                <h5 class="card-title">Stock Alerts</h5>
+                <p class="card-text">View products below reorder level.</p>
+            </div></div>
+        </a>
+    </div>
+    <div class="col-md-3 mb-3">
+        <a href="{% url 'stock_movement_create' %}" class="text-decoration-none">
+            <div class="card"><div class="card-body">
+                <h5 class="card-title">Record Stock</h5>
+                <p class="card-text">Log stock in/out movements.</p>
+            </div></div>
+        </a>
+    </div>
+    <div class="col-md-3 mb-3">
+    <a href="{% url 'forecast_page' %}" class="text-decoration-none">
+        <div class="card"><div class="card-body">
+            <h5 class="card-title">Forecasting</h5>
+            <p class="card-text">Predict future demand per product.</p>
+        </div></div>
+    </a>
+</div>
+</div>
+
+{% endblock %}

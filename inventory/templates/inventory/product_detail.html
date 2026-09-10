@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}{{ product.name }}{% endblock %}
+{% block content %}
+
+<a href="{% url 'product_list' %}" class="btn btn-sm btn-outline-secondary mb-3">← Back to Products</a>
+
+<div class="card">
+    <div class="card-body">
+        <h3 class="card-title">{{ product.name }}</h3>
+        <p class="text-muted">SKU: {{ product.sku }} {% if product.barcode %}| Barcode: {{ product.barcode }}{% endif %}</p>
+        <hr>
+        <p><strong>Category:</strong> {{ product.category|default:"—" }}</p>
+        <p><strong>Supplier:</strong> {{ product.supplier|default:"—" }}</p>
+        <p><strong>Price:</strong> ₹{{ product.price }}</p>
+        <p><strong>Quantity in Stock:</strong> {{ product.quantity }}</p>
+        <p><strong>Reorder Level:</strong> {{ product.reorder_level }}</p>
+        <p><strong>Status:</strong>
+            {% if product.is_low_stock %}
+                <span class="badge bg-danger">Low Stock</span>
+            {% else %}
+                <span class="badge bg-success">OK</span>
+            {% endif %}
+        </p>
+        {% if product.barcode %}
+        <hr>
+        <p><strong>Barcode:</strong></p>
+        <img src="{% url 'barcode_image' product.pk %}" alt="Barcode">
+        {% else %}
+            <p class="text-muted mt-3">No barcode assigned to this product.</p>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}
