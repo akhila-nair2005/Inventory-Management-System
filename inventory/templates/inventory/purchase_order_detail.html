@@ -16,6 +16,16 @@
         </p>
         <p><strong>Ordered by:</strong> {{ order.created_by }} on {{ order.order_date|date:"d M Y, H:i" }}</p>
         {% if order.expected_delivery_date %}<p><strong>Expected Delivery:</strong> {{ order.expected_delivery_date|date:"d M Y" }}</p>{% endif %}
+        {% if order.confirmed_delivery_date %}
+    <p><strong>Supplier Confirmed Delivery:</strong> <span class="text-success">{{ order.confirmed_delivery_date|date:"d M Y" }}</span></p>
+{% elif order.status == 'PENDING' %}
+    <form method="post" action="{% url 'confirm_delivery' order.pk %}" class="d-flex align-items-center gap-2 mb-3">
+        {% csrf_token %}
+        <label class="small mb-0">Record supplier's confirmed date:</label>
+        <input type="date" name="confirmed_delivery_date" class="form-control form-control-sm" style="width: auto;" required>
+        <button type="submit" class="btn btn-sm btn-outline-primary">Save</button>
+    </form>
+{% endif %}
         <p><strong>Payment Terms:</strong> {{ order.payment_terms }}</p>
         {% if order.delivery_address %}<p><strong>Delivery Address:</strong> {{ order.delivery_address }}</p>{% endif %}
         {% if order.notes %}<p><strong>Notes:</strong> {{ order.notes }}</p>{% endif %}

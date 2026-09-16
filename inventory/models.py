@@ -109,6 +109,7 @@ class PurchaseOrder(models.Model):
 
     tax_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    confirmed_delivery_date = models.DateField(null=True, blank=True)
 
     notes = models.TextField(blank=True)
 
@@ -121,11 +122,13 @@ class PurchaseOrder(models.Model):
 
     @property
     def tax_amount(self):
-        return round(self.subtotal * (self.tax_percent / 100), 2)
+        from decimal import Decimal
+        return round(self.subtotal * (Decimal(str(self.tax_percent)) / 100), 2)
 
     @property
     def grand_total(self):
-        return round(self.subtotal + self.tax_amount - self.discount_amount, 2)
+        from decimal import Decimal
+        return round(self.subtotal + self.tax_amount - Decimal(str(self.discount_amount)), 2)
 
     @property
     def total_value_received(self):
@@ -191,3 +194,4 @@ class GoodsReceiptItem(models.Model):
     def usable_quantity(self):
         """Only undamaged units actually go into sellable stock."""
         return max(self.quantity_received - self.quantity_damaged, 0)
+

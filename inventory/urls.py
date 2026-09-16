@@ -16,4 +16,5 @@ urlpatterns = [
     path('suppliers/', views.supplier_list, name='supplier_list'),
     path('suppliers/add/', views.supplier_create, name='supplier_create'),
     path('suppliers/<int:pk>/', views.supplier_detail, name='supplier_detail'),
+    path('purchase-orders/<int:pk>/confirm-delivery/', views.purchase_order_confirm_delivery, name='confirm_delivery'),
 ]
