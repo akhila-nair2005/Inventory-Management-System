@@ -27,3 +27,8 @@ class CustomLogoutView(LogoutView):
 @login_required
 def dashboard(request):
     return render(request, 'accounts/dashboard.html', {'user': request.user})
+
+def landing_page(request):
+    if request.user.is_authenticated:
+        return redirect('dashboard')
+    return render(request, 'accounts/landing.html')

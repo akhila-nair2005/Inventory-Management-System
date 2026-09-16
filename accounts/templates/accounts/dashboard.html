@@ -4,6 +4,16 @@
 
 <h2 class="mb-4">Welcome, {{ user.username }} <span class="badge bg-secondary">{{ user.role }}</span></h2>
 
+{% if user.role == 'ADMIN' or user.role == 'MANAGER' %}
+<div class="col-md-3 mb-3">
+    <a href="{% url 'supplier_list' %}" class="text-decoration-none">
+        <div class="card"><div class="card-body">
+            <h5 class="card-title">Suppliers</h5>
+            <p class="card-text">Manage supplier information.</p>
+        </div></div>
+    </a>
+</div>
+{% endif %}
 {% if user.role == 'ADMIN' %}
     <div class="alert alert-info">
         Admin view — full access to all inventory, billing, alerts, and audit logs.

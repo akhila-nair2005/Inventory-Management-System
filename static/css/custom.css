@@ -1,0 +1,74 @@
+.landing-navbar {
+    background: #0f172a;
+}
+
+.hero-section {
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+}
+
+.feature-card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    height: 100%;
+}
+
+.feature-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+}
+
+.card {
+    transition: box-shadow 0.2s ease;
+}
+
+.card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+body {
+    background-color: #f8f9fb;
+}
+
+.hero-visual {
+    font-size: 3rem;
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    padding-bottom: 2rem;
+    opacity: 0.85;
+}
+
+.feature-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    margin: 0 auto;
+}
+
+.bg-purple-subtle { background-color: #f3e8ff; }
+.text-purple { color: #9333ea; }
+
+.about-icon {
+    font-size: 12rem;
+    color: #1e3a8a;
+    opacity: 0.15;
+}
+
+.landing-footer {
+    background: #0f172a;
+}
+
+.login-body {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+}
+
+.login-card {
+    border-radius: 16px;
+}

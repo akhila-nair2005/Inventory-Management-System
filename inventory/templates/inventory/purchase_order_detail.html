@@ -7,49 +7,74 @@
 <div class="card">
     <div class="card-body">
         <h3>{{ order.order_number }}</h3>
-        <p><strong>Supplier:</strong> {{ order.supplier.name }}</p>
+        <p><strong>Supplier:</strong> {{ order.supplier.name }} | {{ order.supplier.phone }} | {{ order.supplier.email }}</p>
         <p><strong>Status:</strong>
             {% if order.status == 'PENDING' %}<span class="badge bg-warning text-dark">Pending</span>
+            {% elif order.status == 'PARTIALLY_RECEIVED' %}<span class="badge bg-info">Partially Received</span>
             {% elif order.status == 'RECEIVED' %}<span class="badge bg-success">Received</span>
             {% else %}<span class="badge bg-secondary">Cancelled</span>{% endif %}
         </p>
-        <p><strong>Ordered by:</strong> {{ order.created_by }}</p>
-        <p><strong>Order Date:</strong> {{ order.order_date|date:"d M Y, H:i" }}</p>
-        {% if order.received_date %}
-        <p><strong>Received Date:</strong> {{ order.received_date|date:"d M Y, H:i" }}</p>
-        {% endif %}
+        <p><strong>Ordered by:</strong> {{ order.created_by }} on {{ order.order_date|date:"d M Y, H:i" }}</p>
+        {% if order.expected_delivery_date %}<p><strong>Expected Delivery:</strong> {{ order.expected_delivery_date|date:"d M Y" }}</p>{% endif %}
+        <p><strong>Payment Terms:</strong> {{ order.payment_terms }}</p>
+        {% if order.delivery_address %}<p><strong>Delivery Address:</strong> {{ order.delivery_address }}</p>{% endif %}
         {% if order.notes %}<p><strong>Notes:</strong> {{ order.notes }}</p>{% endif %}
 
         <hr>
         <table class="table table-sm">
             <thead>
-                <tr><th>Product</th><th>Qty Ordered</th><th>Unit Cost</th><th>Subtotal</th></tr>
+                <tr>
+                    <th>Product</th><th>Ordered</th><th>Received</th><th>Remaining</th>
+                    <th>Unit Cost</th><th>Margin/Unit</th><th>Subtotal</th><th>Value Received</th>
+                </tr>
             </thead>
             <tbody>
                 {% for item in order.items.all %}
                 <tr>
                     <td>{{ item.product.name }}</td>
                     <td>{{ item.quantity_ordered }}</td>
+                    <td>{{ item.quantity_received_so_far }}</td>
+                    <td>{{ item.quantity_remaining }}</td>
                     <td>₹{{ item.unit_cost }}</td>
+                    <td>
+                        {% if item.margin_per_unit > 0 %}
+                            <span class="text-success">₹{{ item.margin_per_unit }}</span>
+                        {% else %}
+                            <span class="text-danger">₹{{ item.margin_per_unit }} (loss)</span>
+                        {% endif %}
+                    </td>
                     <td>₹{{ item.subtotal }}</td>
+                    <td>₹{{ item.value_received_so_far }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
-        <h5 class="text-end">Total: ₹{{ order.total_cost }}</h5>
 
-        {% if order.status == 'PENDING' %}
+        <table class="table table-sm w-50 ms-auto">
+            <tr><td>Subtotal</td><td class="text-end">₹{{ order.subtotal }}</td></tr>
+            <tr><td>Tax ({{ order.tax_percent }}%)</td><td class="text-end">₹{{ order.tax_amount }}</td></tr>
+            <tr><td>Discount</td><td class="text-end">-₹{{ order.discount_amount }}</td></tr>
+            <tr class="fw-bold"><td>Grand Total</td><td class="text-end">₹{{ order.grand_total }}</td></tr>
+            <tr><td>Total Value Received So Far</td><td class="text-end">₹{{ order.total_value_received }}</td></tr>
+        </table>
+
+        {% if order.status == 'PENDING' or order.status == 'PARTIALLY_RECEIVED' %}
         <div class="mt-3">
-            <a href="{% url 'purchase_order_receive' order.pk %}" class="btn btn-success"
-               onclick="return confirm('Confirm goods have been received? This will update stock quantities.')">
-               Mark as Received
-            </a>
+            <a href="{% url 'purchase_order_receive' order.pk %}" class="btn btn-success">Receive Goods</a>
+            {% if order.status == 'PENDING' %}
             <a href="{% url 'purchase_order_cancel' order.pk %}" class="btn btn-outline-danger"
-               onclick="return confirm('Cancel this purchase order?')">
-               Cancel Order
-            </a>
+               onclick="return confirm('Cancel this purchase order?')">Cancel Order</a>
+            {% endif %}
         </div>
         {% endif %}
+
+        <hr>
+        <h6>Receipt History</h6>
+        {% for receipt in order.receipts.all %}
+            <p class="small text-muted">{{ receipt.received_date|date:"d M Y, H:i" }} by {{ receipt.received_by }} — {{ receipt.remarks|default:"No remarks" }}</p>
+        {% empty %}
+            <p class="text-muted small">No goods received yet.</p>
+        {% endfor %}
     </div>
 </div>
 

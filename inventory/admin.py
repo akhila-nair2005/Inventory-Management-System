@@ -56,7 +56,7 @@ class PurchaseOrderItemInline(admin.TabularInline):
 
 @admin.register(PurchaseOrder)
 class PurchaseOrderAdmin(RoleRestrictedAdminMixin, admin.ModelAdmin):
-    list_display = ['order_number', 'supplier', 'status', 'total_cost', 'order_date']
+    list_display = ['order_number', 'supplier', 'status', 'grand_total', 'order_date']
     list_filter = ['status', 'supplier']
     inlines = [PurchaseOrderItemInline]
     allowed_roles_add = ['ADMIN', 'MANAGER']

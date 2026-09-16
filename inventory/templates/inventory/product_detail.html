@@ -14,6 +14,8 @@
         <p><strong>Price:</strong> ₹{{ product.price }}</p>
         <p><strong>Quantity in Stock:</strong> {{ product.quantity }}</p>
         <p><strong>Reorder Level:</strong> {{ product.reorder_level }}</p>
+        <p><strong>On Order (Pending POs):</strong> {{ product.quantity_on_order }}</p>
+        <p><strong>Expected Stock (Current + On Order):</strong> {{ product.expected_stock }}</p>
         <p><strong>Status:</strong>
             {% if product.is_low_stock %}
                 <span class="badge bg-danger">Low Stock</span>

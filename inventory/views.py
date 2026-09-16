@@ -115,7 +115,10 @@ def barcode_lookup(request):
 from django.db import transaction
 from django.utils import timezone
 import uuid
-from .models import PurchaseOrder, PurchaseOrderItem
+from .models import (
+    Product, Category, Supplier, StockMovement,
+    PurchaseOrder, PurchaseOrderItem, GoodsReceipt, GoodsReceiptItem
+)
 
 
 @login_required
@@ -145,6 +148,7 @@ def purchase_order_create(request):
         return redirect('dashboard')
 
     suppliers = Supplier.objects.all()
+    # Only show products with their suggested reorder quantity for convenience
     products = Product.objects.all()
 
     if request.method == 'POST':
@@ -152,9 +156,14 @@ def purchase_order_create(request):
 
         with transaction.atomic():
             order = PurchaseOrder.objects.create(
-                order_number=f"PO-{uuid.uuid4().hex[:8].upper()}",
+                order_number=f"PO-{timezone.now().year}-{uuid.uuid4().hex[:6].upper()}",
                 supplier=supplier,
                 created_by=request.user,
+                expected_delivery_date=request.POST.get('expected_delivery_date') or None,
+                payment_terms=request.POST.get('payment_terms', 'Due on delivery'),
+                delivery_address=request.POST.get('delivery_address', ''),
+                tax_percent=request.POST.get('tax_percent') or 0,
+                discount_amount=request.POST.get('discount_amount') or 0,
                 notes=request.POST.get('notes', ''),
             )
 
@@ -162,16 +171,28 @@ def purchase_order_create(request):
             quantities = request.POST.getlist('quantity')
             costs = request.POST.getlist('unit_cost')
 
+            margin_warnings = []
+
             for prod_id, qty, cost in zip(product_ids, quantities, costs):
                 if prod_id and qty and cost:
+                    product = Product.objects.get(pk=prod_id)
+                    unit_cost = float(cost)
+
+                    if unit_cost >= float(product.price):
+                        margin_warnings.append(
+                            f"{product.name}: cost (₹{unit_cost}) is not lower than selling price (₹{product.price})."
+                        )
+
                     PurchaseOrderItem.objects.create(
                         purchase_order=order,
                         product_id=prod_id,
                         quantity_ordered=int(qty),
-                        unit_cost=cost,
+                        unit_cost=unit_cost,
                     )
 
-        messages.success(request, f"Purchase order {order.order_number} created.")
+        for w in margin_warnings:
+            messages.warning(request, w)
+        messages.success(request, f"Purchase order {order.order_number} created. Stock will update only after goods are received.")
         return redirect('purchase_order_detail', pk=order.pk)
 
     return render(request, 'inventory/purchase_order_form.html', {
@@ -188,25 +209,55 @@ def purchase_order_receive(request, pk):
 
     order = get_object_or_404(PurchaseOrder, pk=pk)
 
-    if order.status != 'PENDING':
-        messages.error(request, "This order has already been processed.")
+    if order.status in ['RECEIVED', 'CANCELLED']:
+        messages.error(request, "This order is already closed.")
         return redirect('purchase_order_detail', pk=pk)
 
-    with transaction.atomic():
-        for item in order.items.all():
-            StockMovement.objects.create(
-                product=item.product,
-                movement_type='IN',
-                quantity=item.quantity_ordered,
-                performed_by=request.user,
-                note=f"Received from PO {order.order_number}",
+    if request.method == 'POST':
+        with transaction.atomic():
+            receipt = GoodsReceipt.objects.create(
+                purchase_order=order,
+                received_by=request.user,
+                remarks=request.POST.get('remarks', ''),
             )
-        order.status = 'RECEIVED'
-        order.received_date = timezone.now()
-        order.save()
 
-    messages.success(request, f"Order {order.order_number} marked as received. Stock updated.")
-    return redirect('purchase_order_detail', pk=pk)
+            all_fully_received = True
+
+            for item in order.items.all():
+                received = request.POST.get(f'received_{item.id}')
+                damaged = request.POST.get(f'damaged_{item.id}')
+
+                if received:
+                    received = int(received)
+                    damaged = int(damaged) if damaged else 0
+
+                    receipt_item = GoodsReceiptItem.objects.create(
+                        receipt=receipt,
+                        po_item=item,
+                        quantity_received=received,
+                        quantity_damaged=damaged,
+                    )
+
+                    # Only usable (non-damaged) units get added to sellable stock
+                    if receipt_item.usable_quantity > 0:
+                        StockMovement.objects.create(
+                            product=item.product,
+                            movement_type='IN',
+                            quantity=receipt_item.usable_quantity,
+                            performed_by=request.user,
+                            note=f"Received from {order.order_number} (Receipt #{receipt.id})",
+                        )
+
+                if not item.is_fully_received:
+                    all_fully_received = False
+
+            order.status = PurchaseOrder.Status.RECEIVED if all_fully_received else PurchaseOrder.Status.PARTIALLY_RECEIVED
+            order.save()
+
+        messages.success(request, f"Goods receipt recorded for {order.order_number}.")
+        return redirect('purchase_order_detail', pk=pk)
+
+    return render(request, 'inventory/goods_receipt_form.html', {'order': order})
 
 
 @login_required
@@ -221,3 +272,41 @@ def purchase_order_cancel(request, pk):
         order.save()
         messages.success(request, f"Order {order.order_number} cancelled.")
     return redirect('purchase_order_detail', pk=pk)
+
+
+
+@login_required
+def supplier_list(request):
+    suppliers = Supplier.objects.all()
+    return render(request, 'inventory/supplier_list.html', {'suppliers': suppliers})
+
+
+@login_required
+def supplier_detail(request, pk):
+    supplier = get_object_or_404(Supplier, pk=pk)
+    products = supplier.products.all()
+    orders = supplier.purchase_orders.all().order_by('-order_date')[:10]
+    return render(request, 'inventory/supplier_detail.html', {
+        'supplier': supplier, 'products': products, 'orders': orders,
+    })
+
+
+@login_required
+def supplier_create(request):
+    if request.user.role not in ['ADMIN', 'MANAGER']:
+        messages.error(request, "You don't have permission to add suppliers.")
+        return redirect('supplier_list')
+
+    if request.method == 'POST':
+        Supplier.objects.create(
+            name=request.POST.get('name'),
+            contact_person=request.POST.get('contact_person'),
+            phone=request.POST.get('phone'),
+            email=request.POST.get('email'),
+            address=request.POST.get('address'),
+            gst_number=request.POST.get('gst_number'),
+        )
+        messages.success(request, "Supplier added successfully.")
+        return redirect('supplier_list')
+
+    return render(request, 'inventory/supplier_form.html')

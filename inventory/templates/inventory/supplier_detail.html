@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block title %}{{ supplier.name }}{% endblock %}
+{% block content %}
+
+<a href="{% url 'supplier_list' %}" class="btn btn-sm btn-outline-secondary mb-3">← Back to Suppliers</a>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h3>{{ supplier.name }}</h3>
+        <p><strong>Contact:</strong> {{ supplier.contact_person|default:"—" }}</p>
+        <p><strong>Phone:</strong> {{ supplier.phone }}</p>
+        <p><strong>Email:</strong> {{ supplier.email }}</p>
+        <p><strong>Address:</strong> {{ supplier.address|default:"—" }}</p>
+        {% if supplier.gst_number %}<p><strong>GST:</strong> {{ supplier.gst_number }}</p>{% endif %}
+    </div>
+</div>
+
+<h5>Products Supplied</h5>
+<table class="table table-sm table-bordered mb-4">
+    <thead class="table-dark"><tr><th>Product</th><th>Stock</th></tr></thead>
+    <tbody>
+        {% for p in products %}
+        <tr><td>{{ p.name }}</td><td>{{ p.quantity }}</td></tr>
+        {% empty %}
+        <tr><td colspan="2" class="text-center">No products linked.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h5>Recent Purchase Orders</h5>
+<table class="table table-sm table-bordered">
+    <thead class="table-dark"><tr><th>Order #</th><th>Status</th><th>Date</th></tr></thead>
+    <tbody>
+        {% for o in orders %}
+        <tr><td><a href="{% url 'purchase_order_detail' o.pk %}">{{ o.order_number }}</a></td><td>{{ o.status }}</td><td>{{ o.order_date|date:"d M Y" }}</td></tr>
+        {% empty %}
+        <tr><td colspan="3" class="text-center">No orders yet.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% endblock %}

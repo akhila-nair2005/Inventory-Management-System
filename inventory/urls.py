@@ -12,5 +12,8 @@ urlpatterns = [
     path('purchase-orders/add/', views.purchase_order_create, name='purchase_order_create'),
     path('purchase-orders/<int:pk>/', views.purchase_order_detail, name='purchase_order_detail'),
     path('purchase-orders/<int:pk>/receive/', views.purchase_order_receive, name='purchase_order_receive'),
-    path('purchase-orders/<int:pk>/cancel/', views.purchase_order_cancel, name='purchase_order_cancel'),    
+    path('purchase-orders/<int:pk>/cancel/', views.purchase_order_cancel, name='purchase_order_cancel'),
+    path('suppliers/', views.supplier_list, name='supplier_list'),
+    path('suppliers/add/', views.supplier_create, name='supplier_create'),
+    path('suppliers/<int:pk>/', views.supplier_detail, name='supplier_detail'),
 ]
