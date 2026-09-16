@@ -24,6 +24,7 @@
                         <li class="nav-item"><a class="nav-link" href="{% url 'audit_log_list' %}">Audit Logs</a></li>
                     {% endif %}
                     {% if user.role == 'ADMIN' or user.role == 'MANAGER' %}
+                        <li class="nav-item"><a class="nav-link" href="{% url 'reports_page' %}">Reports</a></li>
                         <li class="nav-item"><a class="nav-link" href="{% url 'purchase_order_list' %}">Purchase Orders</a></li>
                     {% endif %}
                 </ul>

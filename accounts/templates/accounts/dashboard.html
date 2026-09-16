@@ -24,8 +24,47 @@
         <div class="card"><div class="card-body">
             <h5 class="card-title">Audit Logs</h5>
             <p class="card-text">View system activity history.</p>
-        </div></div>
+        </div>
+    </div>
     </a>
+</div>
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card kpi-card text-center">
+            <div class="card-body">
+                <i class="bi bi-box-seam fs-2 text-primary"></i>
+                <h3 class="mt-2 mb-0">{{ total_products }}</h3>
+                <p class="text-muted small mb-0">Total Products</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card kpi-card text-center">
+            <div class="card-body">
+                <i class="bi bi-exclamation-triangle fs-2 text-danger"></i>
+                <h3 class="mt-2 mb-0">{{ low_stock_count }}</h3>
+                <p class="text-muted small mb-0">Low Stock Items</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card kpi-card text-center">
+            <div class="card-body">
+                <i class="bi bi-truck fs-2 text-warning"></i>
+                <h3 class="mt-2 mb-0">{{ pending_orders_count }}</h3>
+                <p class="text-muted small mb-0">Pending Purchase Orders</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card kpi-card text-center">
+            <div class="card-body">
+                <i class="bi bi-cash-coin fs-2 text-success"></i>
+                <h3 class="mt-2 mb-0">₹{{ todays_sales }}</h3>
+                <p class="text-muted small mb-0">Today's Sales</p>
+            </div>
+        </div>
+    </div>
 </div>
 {% elif user.role == 'MANAGER' %}
     <div class="alert alert-info">

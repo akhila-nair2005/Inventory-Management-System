@@ -7,6 +7,9 @@ from django.contrib import messages
 from .models import Product, Category, Supplier
 from django.core.mail import send_mail
 from django.conf import settings
+from django.db.models import Sum
+from billing.models import Invoice, InvoiceItem
+from datetime import timedelta
 
 
 
@@ -522,3 +525,42 @@ def supplier_create(request):
         return redirect('supplier_list')
 
     return render(request, 'inventory/supplier_form.html')
+
+
+
+@login_required
+def reports_page(request):
+    if request.user.role not in ['ADMIN', 'MANAGER']:
+        messages.error(request, "You don't have permission to view reports.")
+        return redirect('dashboard')
+
+    # Total inventory value = sum of (quantity * price) across all products
+    products = Product.objects.all()
+    total_inventory_value = sum(p.quantity * p.price for p in products)
+
+    # Top 5 best-selling products by total quantity sold
+    top_products = (
+        InvoiceItem.objects.values('product__name')
+        .annotate(total_sold=Sum('quantity'))
+        .order_by('-total_sold')[:5]
+    )
+
+    # Revenue over the last 14 days
+    today = timezone.now().date()
+    revenue_by_day = []
+    for i in range(13, -1, -1):
+        day = today - timedelta(days=i)
+        invoices = Invoice.objects.filter(created_at__date=day)
+        day_total = sum(inv.total_amount for inv in invoices)
+        revenue_by_day.append({'date': day.strftime('%d %b'), 'total': float(day_total)})
+
+    low_stock_products = [p for p in products if p.is_low_stock]
+
+    context = {
+        'total_inventory_value': total_inventory_value,
+        'top_products': top_products,
+        'revenue_labels': [d['date'] for d in revenue_by_day],
+        'revenue_values': [d['total'] for d in revenue_by_day],
+        'low_stock_products': low_stock_products,
+    }
+    return render(request, 'inventory/reports.html', context)
