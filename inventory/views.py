@@ -10,6 +10,7 @@ from django.conf import settings
 from django.db.models import Sum
 from billing.models import Invoice, InvoiceItem
 from datetime import timedelta
+from alerts.models import StockAlert
 
 
 
@@ -420,7 +421,10 @@ def send_discrepancy_email(order, receipt):
 @login_required
 def purchase_order_receive(request, pk):
     if request.user.role not in ['ADMIN', 'MANAGER']:
-        messages.error(request, "You don't have permission to receive purchase orders.")
+        messages.error(
+            request,
+            "You don't have permission to receive purchase orders."
+        )
         return redirect('purchase_order_list')
 
     order = get_object_or_404(PurchaseOrder, pk=pk)
@@ -431,6 +435,7 @@ def purchase_order_receive(request, pk):
 
     if request.method == 'POST':
         with transaction.atomic():
+
             receipt = GoodsReceipt.objects.create(
                 purchase_order=order,
                 received_by=request.user,
@@ -440,6 +445,7 @@ def purchase_order_receive(request, pk):
             all_fully_received = True
 
             for item in order.items.all():
+
                 received = request.POST.get(f'received_{item.id}')
                 damaged = request.POST.get(f'damaged_{item.id}')
 
@@ -454,27 +460,58 @@ def purchase_order_receive(request, pk):
                         quantity_damaged=damaged,
                     )
 
-                    # Only usable (non-damaged) units get added to sellable stock
+                    # Only usable goods are added to sellable stock
                     if receipt_item.usable_quantity > 0:
+
                         StockMovement.objects.create(
                             product=item.product,
                             movement_type='IN',
                             quantity=receipt_item.usable_quantity,
                             performed_by=request.user,
-                            note=f"Received from {order.order_number} (Receipt #{receipt.id})",
+                            note=f"Received from {order.order_number} "
+                                 f"(Receipt #{receipt.id})",
                         )
+
+                        # Check whether the low-stock alert can be resolved
+                        product = item.product
+
+                        if product.quantity >= product.reorder_level:
+                            StockAlert.objects.filter(
+                                product=product,
+                                resolved=False
+                            ).update(
+                                resolved=True,
+                                resolved_at=timezone.now()
+                            )
 
                 if not item.is_fully_received:
                     all_fully_received = False
 
-            order.status = PurchaseOrder.Status.RECEIVED if all_fully_received else PurchaseOrder.Status.PARTIALLY_RECEIVED
+            # Update purchase order status
+            if all_fully_received:
+                order.status = PurchaseOrder.Status.RECEIVED
+            else:
+                order.status = PurchaseOrder.Status.PARTIALLY_RECEIVED
+
             order.save()
 
+        # Send discrepancy information to supplier
         send_discrepancy_email(order, receipt)
-        messages.success(request, f"Goods receipt recorded for {order.order_number}.")
+
+        messages.success(
+            request,
+            f"Goods receipt recorded for {order.order_number}."
+        )
+
         return redirect('purchase_order_detail', pk=pk)
 
-    return render(request, 'inventory/goods_receipt_form.html', {'order': order})
+    # IMPORTANT:
+    # This handles the GET request and displays the goods receipt form.
+    return render(
+        request,
+        'inventory/goods_receipt_form.html',
+        {'order': order}
+    )
 @login_required
 def purchase_order_cancel(request, pk):
     if request.user.role not in ['ADMIN', 'MANAGER']:
