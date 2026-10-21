@@ -1,36 +1,106 @@
 {% extends 'base.html' %}
+{% load stockms_tags %}
 {% block title %}{{ product.name }}{% endblock %}
 {% block content %}
 
-<a href="{% url 'product_list' %}" class="btn btn-sm btn-outline-secondary mb-3">← Back to Products</a>
-
-<div class="card">
-    <div class="card-body">
-        <h3 class="card-title">{{ product.name }}</h3>
-        <p class="text-muted">SKU: {{ product.sku }} {% if product.barcode %}| Barcode: {{ product.barcode }}{% endif %}</p>
-        <hr>
-        <p><strong>Category:</strong> {{ product.category|default:"—" }}</p>
-        <p><strong>Supplier:</strong> {{ product.supplier|default:"—" }}</p>
-        <p><strong>Price:</strong> ₹{{ product.price }}</p>
-        <p><strong>Quantity in Stock:</strong> {{ product.quantity }}</p>
-        <p><strong>Reorder Level:</strong> {{ product.reorder_level }}</p>
-        <p><strong>On Order (Pending POs):</strong> {{ product.quantity_on_order }}</p>
-        <p><strong>Expected Stock (Current + On Order):</strong> {{ product.expected_stock }}</p>
-        <p><strong>Status:</strong>
-            {% if product.is_low_stock %}
-                <span class="badge bg-danger">Low Stock</span>
-            {% else %}
-                <span class="badge bg-success">OK</span>
-            {% endif %}
-        </p>
-        {% if product.barcode %}
-        <hr>
-        <p><strong>Barcode:</strong></p>
-        <img src="{% url 'barcode_image' product.pk %}" alt="Barcode">
-        {% else %}
-            <p class="text-muted mt-3">No barcode assigned to this product.</p>
+<div class="page-header">
+    <div>
+        <h2>{{ product.name }}</h2>
+        <div class="text-muted small">{% if product.brand %}{{ product.brand }} &middot; {% endif %}SKU {{ product.sku }}{% if product.barcode %} &middot; Barcode {{ product.barcode }}{% endif %}</div>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        {% if can_edit %}
+            <a href="{% url 'product_update' product.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil me-1"></i>Edit</a>
+            <a href="{% url 'purchase_order_create' %}?product={{ product.pk }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-truck me-1"></i>Order Stock</a>
         {% endif %}
+        <a href="{% url 'forecast_page' %}?product={{ product.pk }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-graph-up me-1"></i>Forecast</a>
     </div>
 </div>
 
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="panel">
+            <div class="row">
+                <div class="col-sm-6">
+                    <p class="mb-2"><span class="text-muted">Category</span><br><strong>{{ product.category|default:"-" }}</strong></p>
+                    <p class="mb-2"><span class="text-muted">Supplier</span><br><strong>{{ product.supplier|default:"-" }}</strong></p>
+                    <p class="mb-2"><span class="text-muted">Selling price</span><br><strong>{{ product.price|inr }}</strong></p>
+                    {% if can_edit %}
+                    <p class="mb-2"><span class="text-muted">Cost price</span><br>
+                        <strong>{% if product.cost_price %}{{ product.cost_price|inr }}{% else %}-{% endif %}</strong>
+                        {% if product.margin_percent is not None %}<span class="badge bg-light text-dark border">{{ product.margin_percent }}% margin</span>{% endif %}
+                    </p>
+                    {% endif %}
+                </div>
+                <div class="col-sm-6">
+                    <p class="mb-2"><span class="text-muted">In stock</span><br>
+                        <strong class="fs-4">{{ product.quantity }}</strong>
+                        {% if product.quantity == 0 %}<span class="badge bg-danger">Out of Stock</span>
+                        {% elif product.is_low_stock %}<span class="badge bg-warning text-dark">Low Stock</span>
+                        {% else %}<span class="badge bg-success">OK</span>{% endif %}
+                    </p>
+                    <p class="mb-2"><span class="text-muted">Reorder level / Max level</span><br><strong>{{ product.reorder_level }} / {{ product.max_stock_level }}</strong></p>
+                    <p class="mb-2"><span class="text-muted">On order (open POs)</span><br><strong>{{ product.quantity_on_order }}</strong>
+                        <span class="text-muted small">&rarr; expected {{ product.expected_stock }}</span></p>
+                    <p class="mb-0"><span class="text-muted">Suggested reorder quantity</span><br><strong>{{ product.suggested_reorder_quantity }}</strong></p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="panel text-center">
+            <div class="panel-title">Barcode</div>
+            {% if product.barcode %}
+                <div class="my-3">
+                    <svg id="detailBarcode"></svg>
+                </div>
+                <button type="button" class="btn btn-dark btn-sm"
+                        data-name="{{ product.name }}" data-sku="{{ product.sku }}" data-code="{{ product.barcode }}"
+                        data-price="{{ product.price|inr:0 }}" onclick="openBarcodeLabel(this.dataset.name, this.dataset.sku, this.dataset.code, this.dataset.price)">
+                    <i class="bi bi-printer me-1"></i>Print Label
+                </button>
+                <a href="{% url 'barcode_image' product.pk %}" download="{{ product.sku }}-barcode.png" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-download me-1"></i>PNG
+                </a>
+            {% else %}
+                <p class="text-muted mt-3">No barcode assigned to this product.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="panel mt-3">
+    <div class="panel-title">Recent Stock Movements</div>
+    <div class="panel-sub">Last 10 entries</div>
+    <table class="table table-sm mb-0">
+        <thead><tr><th>Date</th><th>Type</th><th class="text-end">Qty</th><th>By</th><th>Note</th></tr></thead>
+        <tbody>
+        {% for m in movements %}
+            <tr>
+                <td>{{ m.timestamp|date:"d M Y, H:i" }}</td>
+                <td>{% if m.movement_type == 'IN' %}<span class="badge bg-success">In</span>{% else %}<span class="badge bg-secondary">Out</span>{% endif %}</td>
+                <td class="text-end">{{ m.quantity }}</td>
+                <td>{{ m.performed_by|default:"-" }}</td>
+                <td class="text-muted small">{{ m.note }}</td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="5" class="text-center text-muted">No movements recorded.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if product.barcode %}{% include 'inventory/_barcode_modal.html' %}{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if product.barcode %}
+<script>
+window.addEventListener('load', function () {
+    try {
+        JsBarcode('#detailBarcode', '{{ product.barcode|escapejs }}', { format: 'CODE128', width: 2, height: 55, displayValue: true, fontSize: 13 });
+    } catch (e) { /* value can't be encoded: leave blank */ }
+});
+</script>
+{% endif %}
 {% endblock %}

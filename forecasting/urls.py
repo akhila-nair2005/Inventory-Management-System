@@ -4,4 +4,5 @@ from . import views
 urlpatterns = [
     path('', views.forecast_page, name='forecast_page'),
     path('api/<int:product_id>/', views.forecast_view, name='forecast'),
+    path('email-report/', views.email_forecast_report, name='email_forecast_report'),
 ]

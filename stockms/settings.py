@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -52,9 +53,24 @@ INSTALLED_APPS = [
 
 AUTH_USER_MODEL = 'accounts.User'
 
-# Email configuration
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-DEFAULT_FROM_EMAIL = 'stockms@example.com'
+# Email configuration (SMTP)
+# By default e-mails are printed to the terminal running `runserver`.
+# To send real e-mail, set these environment variables before starting the server
+# (PowerShell example):
+#     $env:STOCKMS_EMAIL_USER = "yourname@gmail.com"
+#     $env:STOCKMS_EMAIL_PASSWORD = "your-16-char-app-password"
+# Optional: STOCKMS_EMAIL_HOST (default smtp.gmail.com), STOCKMS_EMAIL_PORT (default 587)
+EMAIL_HOST_USER = os.environ.get('STOCKMS_EMAIL_USER', '')
+if EMAIL_HOST_USER:
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = os.environ.get('STOCKMS_EMAIL_HOST', 'smtp.gmail.com')
+    EMAIL_PORT = int(os.environ.get('STOCKMS_EMAIL_PORT', '587'))
+    EMAIL_USE_TLS = True
+    EMAIL_HOST_PASSWORD = os.environ.get('STOCKMS_EMAIL_PASSWORD', '')
+    DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+else:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+    DEFAULT_FROM_EMAIL = 'stockms@example.com'
 
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard'
@@ -83,6 +99,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'alerts.context_processors.alert_counts',
             ],
         },
     },
@@ -137,8 +154,15 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATICFILES_DIRS = [BASE_DIR / 'static']
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# Shown in the header of PDF invoices (ReportLab)
+COMPANY_NAME = 'StockMS Electronics'
+COMPANY_ADDRESS = 'Kochi, Kerala, India'
+COMPANY_GSTIN = ''

@@ -1,0 +1,7 @@
+Django>=5.2,<5.3
+djangorestframework
+python-barcode
+Pillow
+reportlab
+numpy
+scikit-learn

@@ -17,13 +17,13 @@ from .models import User
 
 class CustomUserAdmin(UserAdmin):
     model = User
-    list_display = ['username', 'email', 'role', 'is_staff', 'is_active']
-    list_filter = ['role', 'is_staff', 'is_active']
+    list_display = ['username', 'email', 'role', 'department', 'phone', 'is_staff', 'is_active']
+    list_filter = ['role', 'department', 'is_staff', 'is_active']
     fieldsets = UserAdmin.fieldsets + (
-        ('Role Info', {'fields': ('role',)}),
+        ('Role Info', {'fields': ('role', 'department', 'phone')}),
     )
     add_fieldsets = UserAdmin.add_fieldsets + (
-        ('Role Info', {'fields': ('role',)}),
+        ('Role Info', {'fields': ('role', 'department', 'phone')}),
     )
 
     def has_module_permission(self, request):

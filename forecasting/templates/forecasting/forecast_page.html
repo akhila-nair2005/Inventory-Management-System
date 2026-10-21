@@ -1,94 +1,176 @@
 {% extends 'base.html' %}
+{% load stockms_tags %}
 {% block title %}Demand Forecasting{% endblock %}
 {% block content %}
 
-<h2 class="mb-4">Demand Forecasting</h2>
-
-<form method="get" class="row g-2 mb-4">
-    <div class="col-md-6">
-        <select name="product" class="form-select" onchange="this.form.submit()">
-            <option value="">-- Select a Product --</option>
-            {% for p in products %}
-                <option value="{{ p.id }}" {% if selected_product.id == p.id %}selected{% endif %}>
-                    {{ p.name }} ({{ p.sku }})
-                </option>
-            {% endfor %}
-        </select>
+<div class="page-header">
+    <div>
+        <h2>Demand Forecasting</h2>
+        <div class="text-muted small">Monthly unit sales over the last 6 completed months, projected 3 months ahead with Linear Regression (scikit-learn) and a {{ window }}-month Moving Average.</div>
     </div>
-</form>
+    <div class="d-flex flex-wrap gap-2">
+        <form method="get" class="d-flex align-items-center gap-2">
+            {% if selected %}<input type="hidden" name="product" value="{{ selected.product_id }}">{% endif %}
+            <label class="small text-muted mb-0">MA window</label>
+            <select name="window" class="form-select form-select-sm w-auto" onchange="this.form.submit()">
+                {% for w in "234" %}<option value="{{ w }}" {% if window|stringformat:"s" == w %}selected{% endif %}>{{ w }} months</option>{% endfor %}
+            </select>
+        </form>
+        {% if can_email %}
+        <form method="post" action="{% url 'email_forecast_report' %}">{% csrf_token %}
+            <button class="btn btn-outline-dark btn-sm"><i class="bi bi-envelope me-1"></i>E-mail report</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
 
-{% if selected_product %}
-    <h4>Forecast for {{ selected_product.name }}</h4>
+<div class="row g-3 mb-3">
+    <div class="col-sm-6 col-xl-3"><div class="card kpi-card h-100"><div class="card-body">
+        <div class="kpi-label">Need restocking</div><div class="kpi-value text-danger">{{ products_to_restock }}</div>
+        <div class="kpi-sub">Estimated cost {{ restock_cost|inr:0 }}</div>
+    </div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="card kpi-card h-100"><div class="card-body">
+        <div class="kpi-label">High-demand products</div><div class="kpi-value">{{ high_demand_count }}</div>
+        <div class="kpi-sub">Forecast 15+ units/month or rising</div>
+    </div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="card kpi-card h-100"><div class="card-body">
+        <div class="kpi-label">Stock-out risk</div><div class="kpi-value text-warning">{{ stockout_risk_count }}</div>
+        <div class="kpi-sub">Stock below next month's demand</div>
+    </div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="card kpi-card h-100"><div class="card-body">
+        <div class="kpi-label">Not enough history</div><div class="kpi-value">{{ insufficient_count }}</div>
+        <div class="kpi-sub">Need 3+ months of sales</div>
+    </div></div></div>
+</div>
 
-    {% if forecast_data.linear_regression.error or forecast_data.moving_average.error %}
-        <div class="alert alert-warning">
-            Not enough historical stock movement data to generate a forecast for this product.
-        </div>
-    {% else %}
-        <div class="row mb-4">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-body">
-                        <h6 class="card-title">Moving Average</h6>
-                        <p>Daily average: <strong>{{ forecast_data.moving_average.daily_avg }}</strong> units</p>
-                    </div>
+{% if selected %}
+<div class="row g-3 mb-3">
+    <div class="col-lg-7">
+        <div class="panel">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+                <div>
+                    <div class="panel-title">{{ selected.name }}</div>
+                    <div class="panel-sub">{{ selected.sku }}{% if selected.brand %} &middot; {{ selected.brand }}{% endif %}</div>
                 </div>
+                <form method="get">
+                    <input type="hidden" name="window" value="{{ window }}">
+                    <select name="product" class="form-select form-select-sm" style="max-width:240px" onchange="this.form.submit()">
+                        {% for f in forecasts %}<option value="{{ f.product_id }}" {% if f.product_id == selected.product_id %}selected{% endif %}>{{ f.name|truncatechars:40 }}</option>{% endfor %}
+                    </select>
+                </form>
             </div>
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-body">
-                        <h6 class="card-title">Linear Regression</h6>
-                        <p>Trend slope: <strong>{{ forecast_data.linear_regression.slope }}</strong>
-                            {% if forecast_data.linear_regression.slope > 0 %}
-                                <span class="badge bg-danger">Rising demand</span>
-                            {% elif forecast_data.linear_regression.slope < 0 %}
-                                <span class="badge bg-success">Falling demand</span>
-                            {% else %}
-                                <span class="badge bg-secondary">Stable</span>
-                            {% endif %}
-                        </p>
-                    </div>
-                </div>
-            </div>
+            {% if selected.status == 'OK' %}
+                <div class="chart-box tall"><canvas id="productChart"></canvas></div>
+            {% else %}
+                <div class="alert alert-warning mb-0">Only {{ selected.data_points }} month{{ selected.data_points|pluralize }} of sales so far. At least 3 months are needed to fit a forecast.</div>
+            {% endif %}
         </div>
-
-        <canvas id="forecastChart" height="100"></canvas>
-
-        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-        <script>
-            const ctx = document.getElementById('forecastChart').getContext('2d');
-            const maForecast = {{ forecast_data.moving_average.forecast|default:"[]"|safe }};
-            const lrForecast = {{ forecast_data.linear_regression.forecast|default:"[]"|safe }};
-            const labels = maForecast.map((_, i) => `Day ${i + 1}`);
-
-            new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        {
-                            label: 'Moving Average Forecast',
-                            data: maForecast,
-                            borderColor: '#0d6efd',
-                            tension: 0.3,
-                        },
-                        {
-                            label: 'Linear Regression Forecast',
-                            data: lrForecast,
-                            borderColor: '#dc3545',
-                            tension: 0.3,
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    plugins: { title: { display: true, text: 'Next 7 Days — Predicted Daily Demand' } }
-                }
-            });
-        </script>
-    {% endif %}
-{% else %}
-    <p class="text-muted">Select a product above to view its demand forecast.</p>
+    </div>
+    <div class="col-lg-5">
+        <div class="panel mb-3">
+            <div class="panel-title">Model summary</div>
+            {% if selected.status == 'OK' %}
+            <table class="table table-sm mb-0">
+                <tr><td>Next month: linear regression</td><td class="text-end fw-semibold">{{ selected.next_month_lr }} units</td></tr>
+                <tr><td>Next month: moving average</td><td class="text-end fw-semibold">{{ selected.next_month_ma }} units</td></tr>
+                <tr><td>Blended forecast</td><td class="text-end fw-semibold">{{ selected.blended_next_month }} units</td></tr>
+                <tr><td>Trend slope</td><td class="text-end">{{ selected.slope }} units/month
+                    {% if selected.trend == 'UPWARD' %}<span class="badge bg-success">Rising</span>{% elif selected.trend == 'DOWNWARD' %}<span class="badge bg-danger">Falling</span>{% else %}<span class="badge bg-secondary">Stable</span>{% endif %}</td></tr>
+                <tr><td>R&sup2; (fit quality)</td><td class="text-end">{{ selected.r_squared }}</td></tr>
+                <tr><td>Current stock / on order</td><td class="text-end">{{ selected.current_stock }} / {{ selected.on_order }}</td></tr>
+                <tr><td>Months of cover</td><td class="text-end">{{ selected.months_of_cover|default:"-" }}</td></tr>
+                <tr class="table-light"><td class="fw-semibold">Recommended restock</td>
+                    <td class="text-end fw-bold {% if selected.recommended_restock %}text-danger{% endif %}">+{{ selected.recommended_restock }} units</td></tr>
+            </table>
+            {% if selected.recommended_restock and can_email %}
+                <a class="btn btn-primary w-100 mt-3" href="{% url 'purchase_order_create' %}?product={{ selected.product_id }}&qty={{ selected.recommended_restock }}">
+                    <i class="bi bi-truck me-1"></i>Create purchase order for {{ selected.recommended_restock }} units</a>
+            {% endif %}
+            {% else %}<p class="text-muted mb-0">No model yet.</p>{% endif %}
+        </div>
+        <div class="panel">
+            <div class="panel-title">Stock vs. forecast demand</div>
+            <div class="chart-box" style="height:190px"><canvas id="compareChart"></canvas></div>
+        </div>
+    </div>
+</div>
 {% endif %}
 
+<div class="panel">
+    <div class="panel-title">All products, most urgent first</div>
+    <div class="panel-sub">Recommended restock = forecast + safety buffer (reorder level) &minus; (stock + on order)</div>
+    <div class="table-responsive">
+    <table class="table table-sm table-hover mb-0 align-middle">
+        <thead><tr><th>Product</th><th class="text-end">Stock</th><th class="text-end">On order</th><th class="text-end">LR</th><th class="text-end">MA</th><th class="text-end">Forecast</th><th>Trend</th><th>Demand</th><th class="text-end">Restock</th></tr></thead>
+        <tbody>
+        {% for f in forecasts %}
+            <tr>
+                <td><a href="?product={{ f.product_id }}&window={{ window }}" class="text-decoration-none">{{ f.name|truncatechars:42 }}</a><div class="small text-muted">{{ f.sku }}</div></td>
+                <td class="text-end {% if f.stockout_risk %}text-danger fw-semibold{% endif %}">{{ f.current_stock }}</td>
+                <td class="text-end">{{ f.on_order }}</td>
+                {% if f.status == 'OK' %}
+                <td class="text-end">{{ f.next_month_lr }}</td>
+                <td class="text-end">{{ f.next_month_ma }}</td>
+                <td class="text-end fw-semibold">{{ f.blended_next_month }}</td>
+                <td>{% if f.trend == 'UPWARD' %}<span class="text-success">&#9650; Up</span>{% elif f.trend == 'DOWNWARD' %}<span class="text-danger">&#9660; Down</span>{% else %}<span class="text-muted">&#9644; Stable</span>{% endif %}</td>
+                <td>{% if f.priority == 'HIGH_DEMAND' %}<span class="badge bg-danger">High</span>{% elif f.priority == 'MODERATE_DEMAND' %}<span class="badge bg-warning text-dark">Moderate</span>{% else %}<span class="badge bg-secondary">Low</span>{% endif %}</td>
+                <td class="text-end">{% if f.recommended_restock %}<span class="badge bg-danger">+{{ f.recommended_restock }}</span>{% else %}<span class="text-muted">-</span>{% endif %}</td>
+                {% else %}
+                <td colspan="6" class="text-muted small">Not enough sales history ({{ f.data_points }} month{{ f.data_points|pluralize }})</td>
+                {% endif %}
+            </tr>
+        {% empty %}
+            <tr><td colspan="9" class="text-center text-muted">No products yet.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+
+{{ chart_data|json_script:"fc-data" }}
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+    const data = JSON.parse(document.getElementById('fc-data').textContent);
+    Chart.defaults.font.size = 11;
+    const f = data.selected;
+
+    const productCanvas = document.getElementById('productChart');
+    if (f && f.status === 'OK' && productCanvas) {
+        const h = f.history_values.length;
+        const labels = f.history_labels.concat(f.future_labels);
+        const bridge = (arr) => { const out = new Array(h - 1).fill(null); out.push(f.history_values[h - 1]); return out.concat(arr); };
+        new Chart(productCanvas, {
+            type: 'line',
+            data: { labels, datasets: [
+                { label: 'Units sold', data: f.history_values.concat(new Array(f.future_labels.length).fill(null)), borderColor: '#0f172a', backgroundColor: '#0f172a', tension: .25 },
+                { label: 'Linear regression', data: bridge(f.lr_forecast), borderColor: '#dc2626', borderDash: [6, 4], tension: .25 },
+                { label: 'Moving average', data: bridge(f.ma_forecast), borderColor: '#2563eb', borderDash: [2, 3], tension: .25 },
+            ]},
+            options: { responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } },
+                scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } },
+        });
+    }
+
+    const cmp = data.compare;
+    const cmpCanvas = document.getElementById('compareChart');
+    if (cmpCanvas && cmp.labels.length) {
+        new Chart(cmpCanvas, {
+            type: 'bar',
+            data: { labels: cmp.labels, datasets: [
+                { label: 'Stock', data: cmp.stock, backgroundColor: '#475569' },
+                { label: 'Forecast demand', data: cmp.demand, backgroundColor: '#2563eb' },
+                { label: 'Restock', data: cmp.restock, backgroundColor: '#dc2626' },
+            ]},
+            options: { responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } },
+                scales: { x: { ticks: { font: { size: 9 } } }, y: { beginAtZero: true, ticks: { precision: 0 } } } },
+        });
+    }
+})();
+</script>
 {% endblock %}

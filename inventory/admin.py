@@ -13,8 +13,8 @@ from accounts.permissions import RoleRestrictedAdminMixin
 
 @admin.register(Category)
 class CategoryAdmin(RoleRestrictedAdminMixin, admin.ModelAdmin):
-    list_display = ['name']
-    search_fields = ['name']
+    list_display = ['name', 'code']
+    search_fields = ['name', 'code']
     # Only Admin/Manager organize categories — Staff have no reason to
 
 
@@ -27,9 +27,9 @@ class SupplierAdmin(RoleRestrictedAdminMixin, admin.ModelAdmin):
 
 @admin.register(Product)
 class ProductAdmin(RoleRestrictedAdminMixin, admin.ModelAdmin):
-    list_display = ['name', 'sku', 'category', 'quantity', 'reorder_level', 'is_low_stock']
-    list_filter = ['category', 'supplier']
-    search_fields = ['name', 'sku', 'barcode']
+    list_display = ['name', 'brand', 'sku', 'category', 'price', 'cost_price', 'quantity', 'reorder_level', 'is_low_stock']
+    list_filter = ['category', 'supplier', 'brand']
+    search_fields = ['name', 'brand', 'sku', 'barcode']
     # Staff can VIEW products (to check stock/prices) but not add/edit/delete
     # Pricing and product setup is a Manager/Admin decision
 

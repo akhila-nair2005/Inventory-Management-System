@@ -1,23 +1,49 @@
 {% extends 'base.html' %}
+{% load stockms_tags %}
 {% block title %}Products{% endblock %}
 {% block content %}
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h2>Products</h2>
-    {% if user.role == 'ADMIN' or user.role == 'MANAGER' %}
-        <a href="{% url 'product_create' %}" class="btn btn-primary">+ Add Product</a>
+<div class="page-header">
+    <div>
+        <h2>Products</h2>
+        <div class="text-muted small">{{ products|length }} product{{ products|length|pluralize }} shown</div>
+    </div>
+    {% if can_edit %}
+        <a href="{% url 'product_create' %}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Add Product</a>
     {% endif %}
 </div>
 
-<table class="table table-bordered table-hover">
+<form method="get" class="row g-2 mb-3">
+    <div class="col-md-5">
+        <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Search name, brand, SKU or barcode">
+    </div>
+    <div class="col-md-3">
+        <select name="category" class="form-select">
+            <option value="">All categories</option>
+            {% for c in categories %}<option value="{{ c.id }}" {% if category == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
+        </select>
+    </div>
+    <div class="col-md-2">
+        <select name="status" class="form-select">
+            <option value="">Any stock level</option>
+            <option value="ok" {% if status == 'ok' %}selected{% endif %}>Healthy</option>
+            <option value="low" {% if status == 'low' %}selected{% endif %}>Low stock</option>
+            <option value="out" {% if status == 'out' %}selected{% endif %}>Out of stock</option>
+        </select>
+    </div>
+    <div class="col-md-2 d-grid"><button class="btn btn-outline-secondary">Filter</button></div>
+</form>
+
+<div class="table-responsive">
+<table class="table table-bordered table-hover bg-white align-middle">
     <thead class="table-dark">
         <tr>
-            <th>Name</th>
-            <th>SKU</th>
+            <th>Product</th>
             <th>Category</th>
-            <th>Price</th>
-            <th>Quantity</th>
-            <th>Reorder Level</th>
+            <th class="text-end">Price</th>
+            {% if can_edit %}<th class="text-end">Cost / Margin</th>{% endif %}
+            <th class="text-end">Qty</th>
+            <th class="text-end">Reorder</th>
             <th>Status</th>
             <th></th>
         </tr>
@@ -25,25 +51,44 @@
     <tbody>
         {% for product in products %}
         <tr>
-            <td>{{ product.name }}</td>
-            <td>{{ product.sku }}</td>
-            <td>{{ product.category|default:"—" }}</td>
-            <td>₹{{ product.price }}</td>
-            <td>{{ product.quantity }}</td>
-            <td>{{ product.reorder_level }}</td>
             <td>
-                {% if product.is_low_stock %}
-                    <span class="badge bg-danger">Low Stock</span>
-                {% else %}
-                    <span class="badge bg-success">OK</span>
+                <a href="{% url 'product_detail' product.pk %}" class="fw-semibold text-decoration-none">{{ product.name }}</a>
+                <div class="small text-muted">{% if product.brand %}{{ product.brand }} &middot; {% endif %}{{ product.sku }}</div>
+            </td>
+            <td>{{ product.category|default:"-" }}</td>
+            <td class="text-end">{{ product.price|inr:0 }}</td>
+            {% if can_edit %}
+            <td class="text-end">
+                {% if product.cost_price %}{{ product.cost_price|inr:0 }}
+                    <div class="small {% if product.margin_percent < 10 %}text-danger{% else %}text-success{% endif %}">{{ product.margin_percent }}%</div>
+                {% else %}<span class="text-muted">-</span>{% endif %}
+            </td>
+            {% endif %}
+            <td class="text-end stock-pill">{{ product.quantity }}</td>
+            <td class="text-end">{{ product.reorder_level }}</td>
+            <td>
+                {% if product.quantity == 0 %}<span class="badge bg-danger">Out of Stock</span>
+                {% elif product.is_low_stock %}<span class="badge bg-warning text-dark">Low Stock</span>
+                {% else %}<span class="badge bg-success">OK</span>{% endif %}
+            </td>
+            <td class="text-nowrap">
+                <a href="{% url 'product_detail' product.pk %}" class="btn btn-sm btn-outline-secondary">View</a>
+                {% if can_edit %}<a href="{% url 'product_update' product.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>{% endif %}
+                {% if product.barcode %}
+                <button type="button" class="btn btn-sm btn-outline-dark" title="Barcode label"
+                        data-name="{{ product.name }}" data-sku="{{ product.sku }}" data-code="{{ product.barcode }}"
+                        data-price="{{ product.price|inr:0 }}" onclick="openBarcodeLabel(this.dataset.name, this.dataset.sku, this.dataset.code, this.dataset.price)">
+                    <i class="bi bi-upc-scan"></i>
+                </button>
                 {% endif %}
             </td>
-            <td><a href="{% url 'product_detail' product.pk %}" class="btn btn-sm btn-outline-secondary">View</a></td>
         </tr>
         {% empty %}
-        <tr><td colspan="8" class="text-center">No products found.</td></tr>
+        <tr><td colspan="8" class="text-center text-muted py-4">No products match your filters.</td></tr>
         {% endfor %}
     </tbody>
 </table>
+</div>
 
+{% include 'inventory/_barcode_modal.html' %}
 {% endblock %}

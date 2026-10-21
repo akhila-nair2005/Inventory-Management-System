@@ -27,8 +27,8 @@ class InvoiceItemInline(admin.TabularInline):
 
 @admin.register(Invoice)
 class InvoiceAdmin(RoleRestrictedAdminMixin, admin.ModelAdmin):
-    list_display = ['invoice_number', 'customer', 'status', 'total_amount', 'created_at']
-    list_filter = ['status', 'created_at']
+    list_display = ['invoice_number', 'customer', 'status', 'payment_method', 'total_amount', 'created_at']
+    list_filter = ['status', 'payment_method', 'created_at']
     search_fields = ['invoice_number']
     inlines = [InvoiceItemInline]
     allowed_roles_add = ['ADMIN', 'MANAGER', 'STAFF']  # Staff process sales/checkout daily

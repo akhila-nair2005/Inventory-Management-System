@@ -78,3 +78,53 @@ body {
     border-radius: 12px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
+
+/* ===== App shell ===== */
+.app-navbar {
+    background: #0f172a;
+    border-bottom: 1px solid #1e293b;
+}
+
+.page-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    margin-bottom: 1.25rem;
+}
+
+.page-header h2 { margin: 0; font-size: 1.4rem; font-weight: 600; }
+
+/* ===== KPI cards ===== */
+.kpi-card .kpi-label { font-size: .78rem; color: #64748b; text-transform: uppercase; letter-spacing: .04em; }
+.kpi-card .kpi-value { font-size: 1.6rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.kpi-card .kpi-sub { font-size: .78rem; color: #64748b; }
+.kpi-icon {
+    width: 44px; height: 44px; border-radius: 10px;
+    display: inline-flex; align-items: center; justify-content: center; font-size: 1.3rem;
+}
+
+/* ===== Dashboard / report panels ===== */
+.panel { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.1rem 1.25rem; height: 100%; }
+.panel-title { font-size: .95rem; font-weight: 600; margin-bottom: .15rem; }
+.panel-sub { font-size: .78rem; color: #64748b; margin-bottom: .75rem; }
+.chart-box { position: relative; height: 270px; }
+.chart-box.tall { height: 330px; }
+
+.table > :not(caption) > * > * { vertical-align: middle; }
+.stock-pill { font-variant-numeric: tabular-nums; }
+
+/* ===== Barcode labels ===== */
+.barcode-label {
+    border: 1px dashed #94a3b8; border-radius: 8px; padding: .75rem 1rem;
+    text-align: center; background: #fff; display: inline-block; min-width: 260px;
+}
+.barcode-label .label-name { font-size: .8rem; font-weight: 600; }
+.barcode-label .label-sku { font-size: .7rem; color: #64748b; }
+
+@media print {
+    body * { visibility: hidden; }
+    #print-area, #print-area * { visibility: visible; }
+    #print-area { position: absolute; left: 0; top: 0; }
+}

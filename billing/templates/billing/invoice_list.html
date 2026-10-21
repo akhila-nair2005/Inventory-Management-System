@@ -1,37 +1,69 @@
 {% extends 'base.html' %}
+{% load stockms_tags %}
 {% block title %}Invoices{% endblock %}
 {% block content %}
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h2>Invoices</h2>
-    <a href="{% url 'invoice_create' %}" class="btn btn-primary">+ New Invoice</a>
+<div class="page-header">
+    <div>
+        <h2>Invoices</h2>
+        <div class="text-muted small">{{ page.paginator.count }} invoice{{ page.paginator.count|pluralize }}</div>
+    </div>
+    <a href="{% url 'invoice_create' %}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>New Invoice</a>
 </div>
 
-<table class="table table-bordered table-hover">
+<form method="get" class="row g-2 mb-3">
+    <div class="col-md-5"><input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Search invoice number or customer"></div>
+    <div class="col-md-3">
+        <select name="status" class="form-select"><option value="">Any status</option>
+            {% for v, l in status_choices %}<option value="{{ v }}" {% if status == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
+        </select>
+    </div>
+    <div class="col-md-2">
+        <select name="payment" class="form-select"><option value="">Any payment</option>
+            {% for v, l in payment_choices %}<option value="{{ v }}" {% if payment == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
+        </select>
+    </div>
+    <div class="col-md-2 d-grid"><button class="btn btn-outline-secondary">Filter</button></div>
+</form>
+
+<div class="table-responsive">
+<table class="table table-bordered table-hover bg-white">
     <thead class="table-dark">
-        <tr>
-            <th>Invoice #</th>
-            <th>Customer</th>
-            <th>Status</th>
-            <th>Total</th>
-            <th>Date</th>
-            <th></th>
-        </tr>
+        <tr><th>Invoice #</th><th>Customer</th><th>Payment</th><th>Status</th><th class="text-end">Total</th><th>Date</th><th></th></tr>
     </thead>
     <tbody>
-        {% for invoice in invoices %}
-        <tr>
-            <td>{{ invoice.invoice_number }}</td>
+        {% for invoice in page %}
+        <tr {% if invoice.status == 'CANCELLED' %}class="text-muted"{% endif %}>
+            <td class="fw-semibold">{{ invoice.invoice_number }}</td>
             <td>{{ invoice.customer|default:"Walk-in" }}</td>
-            <td><span class="badge bg-info">{{ invoice.status }}</span></td>
-            <td>₹{{ invoice.total_amount }}</td>
+            <td>{{ invoice.get_payment_method_display }}</td>
+            <td>
+                {% if invoice.status == 'PAID' %}<span class="badge bg-success">Paid</span>
+                {% elif invoice.status == 'PENDING' %}<span class="badge bg-warning text-dark">Pending</span>
+                {% else %}<span class="badge bg-secondary">Cancelled</span>{% endif %}
+            </td>
+            <td class="text-end">{{ invoice.total_amount|inr }}</td>
             <td>{{ invoice.created_at|date:"d M Y" }}</td>
-            <td><a href="{% url 'invoice_detail' invoice.pk %}" class="btn btn-sm btn-outline-secondary">View</a></td>
+            <td class="text-nowrap">
+                <a href="{% url 'invoice_detail' invoice.pk %}" class="btn btn-sm btn-outline-secondary">View</a>
+                <a href="{% url 'invoice_pdf' invoice.pk %}" target="_blank" class="btn btn-sm btn-outline-dark" title="PDF"><i class="bi bi-file-earmark-pdf"></i></a>
+            </td>
         </tr>
         {% empty %}
-        <tr><td colspan="6" class="text-center">No invoices yet.</td></tr>
+        <tr><td colspan="7" class="text-center text-muted py-4">No invoices found.</td></tr>
         {% endfor %}
     </tbody>
+    {% if page.object_list %}
+    <tfoot><tr class="table-light"><td colspan="4" class="text-end fw-semibold">This page (excluding cancelled)</td><td class="text-end fw-semibold">{{ page_total|inr }}</td><td colspan="2"></td></tr></tfoot>
+    {% endif %}
 </table>
+</div>
 
+{% if page.has_other_pages %}
+<nav><ul class="pagination">
+    {% if page.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ page.previous_page_number }}&q={{ q }}&status={{ status }}&payment={{ payment }}">&laquo; Prev</a></li>{% endif %}
+    <li class="page-item disabled"><span class="page-link">Page {{ page.number }} of {{ page.paginator.num_pages }}</span></li>
+    {% if page.has_next %}<li class="page-item"><a class="page-link" href="?page={{ page.next_page_number }}&q={{ q }}&status={{ status }}&payment={{ payment }}">Next &raquo;</a></li>{% endif %}
+</ul></nav>
+{% endif %}
 {% endblock %}

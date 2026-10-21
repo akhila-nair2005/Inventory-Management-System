@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}Email Log{% endblock %}
+{% block content %}
+
+<div class="page-header">
+    <div>
+        <h2>Email Log</h2>
+        <div class="text-muted small">{{ total_sent }} sent &middot; {{ total_failed }} failed &middot; showing the latest 200</div>
+    </div>
+    <form method="get">
+        <select name="type" class="form-select form-select-sm" onchange="this.form.submit()">
+            <option value="">All types</option>
+            {% for value, label in type_choices %}<option value="{{ value }}" {% if type_filter == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+    </form>
+</div>
+
+<div class="table-responsive">
+<table class="table table-bordered table-hover bg-white align-middle">
+    <thead class="table-dark"><tr><th>When</th><th>Type</th><th>To</th><th>Subject</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+    {% for e in logs %}
+        <tr>
+            <td class="text-nowrap small">{{ e.created_at|date:"d M Y, H:i" }}</td>
+            <td><span class="badge bg-light text-dark border">{{ e.get_alert_type_display }}</span></td>
+            <td class="small">{{ e.recipient_email }}</td>
+            <td class="small">{{ e.subject }}</td>
+            <td>{% if e.status == 'SENT' %}<span class="badge bg-success">Sent</span>{% else %}<span class="badge bg-danger" title="{{ e.error_message }}">Failed</span>{% endif %}</td>
+            <td><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#body{{ e.pk }}">Body</button></td>
+        </tr>
+        <tr class="collapse" id="body{{ e.pk }}"><td colspan="6"><pre class="mb-0 small" style="white-space:pre-wrap">{{ e.body }}</pre>
+            {% if e.error_message %}<div class="text-danger small mt-1">Error: {{ e.error_message }}</div>{% endif %}</td></tr>
+    {% empty %}
+        <tr><td colspan="6" class="text-center text-muted py-4">No e-mails yet.</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endblock %}

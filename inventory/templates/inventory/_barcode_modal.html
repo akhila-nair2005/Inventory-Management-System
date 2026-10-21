@@ -1,0 +1,43 @@
+{# Printable CODE-128 barcode label (JsBarcode). Include once per page; call openBarcodeLabel(...). #}
+<div class="modal fade" id="barcodeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Barcode Label</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div id="print-area">
+                    <div class="barcode-label">
+                        <div class="label-name" id="labelName"></div>
+                        <div class="label-sku" id="labelSku"></div>
+                        <svg id="barcodeSvg"></svg>
+                        <div class="fw-semibold" id="labelPrice"></div>
+                    </div>
+                </div>
+                <div id="barcodeError" class="text-danger small mt-2 d-none"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-dark" onclick="window.print()"><i class="bi bi-printer me-1"></i>Print Label</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+<script>
+function openBarcodeLabel(name, sku, code, price) {
+    document.getElementById('labelName').textContent = name;
+    document.getElementById('labelSku').textContent = 'SKU: ' + sku;
+    document.getElementById('labelPrice').textContent = price;
+    const err = document.getElementById('barcodeError');
+    err.classList.add('d-none');
+    try {
+        JsBarcode('#barcodeSvg', code, { format: 'CODE128', width: 2, height: 60, displayValue: true, fontSize: 14, margin: 4 });
+    } catch (e) {
+        err.textContent = 'This barcode value cannot be encoded as CODE-128.';
+        err.classList.remove('d-none');
+    }
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('barcodeModal')).show();
+}
+</script>

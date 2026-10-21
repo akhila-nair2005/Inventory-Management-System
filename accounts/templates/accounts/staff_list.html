@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% block title %}Staff Management{% endblock %}
+{% block content %}
+
+<div class="page-header">
+    <div>
+        <h2>Staff Management</h2>
+        <div class="text-muted small">{{ active_total }} active of {{ total }} accounts &middot; {{ admin_total }} active admin{{ admin_total|pluralize }}</div>
+    </div>
+    <a href="{% url 'staff_create' %}" class="btn btn-primary"><i class="bi bi-person-plus me-1"></i>Add Staff Account</a>
+</div>
+
+<form method="get" class="row g-2 mb-3">
+    <div class="col-md-5">
+        <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Search name, username, e-mail, department">
+    </div>
+    <div class="col-md-3">
+        <select name="role" class="form-select">
+            <option value="">All roles</option>
+            {% for value, label in roles %}
+                <option value="{{ value }}" {% if role == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-2">
+        <select name="status" class="form-select">
+            <option value="">Any status</option>
+            <option value="active" {% if status == 'active' %}selected{% endif %}>Active</option>
+            <option value="inactive" {% if status == 'inactive' %}selected{% endif %}>Inactive</option>
+        </select>
+    </div>
+    <div class="col-md-2 d-grid"><button class="btn btn-outline-secondary">Filter</button></div>
+</form>
+
+<div class="table-responsive">
+<table class="table table-bordered table-hover bg-white">
+    <thead class="table-dark">
+        <tr><th>User</th><th>Role</th><th>Department</th><th>Contact</th><th>Last login</th><th>Status</th><th></th></tr>
+    </thead>
+    <tbody>
+    {% for u in users %}
+        <tr {% if not u.is_active %}class="text-muted"{% endif %}>
+            <td>
+                <strong>{{ u.get_full_name|default:u.username }}</strong>
+                <div class="small text-muted">@{{ u.username }}</div>
+            </td>
+            <td>
+                {% if u.role == 'ADMIN' %}<span class="badge bg-danger">Admin</span>
+                {% elif u.role == 'MANAGER' %}<span class="badge bg-primary">Manager</span>
+                {% else %}<span class="badge bg-secondary">Staff</span>{% endif %}
+            </td>
+            <td>{{ u.department|default:"-" }}</td>
+            <td class="small">{{ u.email|default:"-" }}<br>{{ u.phone|default:"" }}</td>
+            <td class="small">{{ u.last_login|date:"d M Y, H:i"|default:"Never" }}</td>
+            <td>{% if u.is_active %}<span class="badge bg-success">Active</span>{% else %}<span class="badge bg-secondary">Inactive</span>{% endif %}</td>
+            <td class="text-nowrap">
+                <a href="{% url 'staff_update' u.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>
+                {% if u.pk != user.pk %}
+                <form method="post" action="{% url 'staff_toggle_active' u.pk %}" class="d-inline"
+                      onsubmit="return confirm('{% if u.is_active %}Deactivate{% else %}Activate{% endif %} {{ u.username }}?');">
+                    {% csrf_token %}
+                    <button class="btn btn-sm {% if u.is_active %}btn-outline-danger{% else %}btn-outline-success{% endif %}">
+                        {% if u.is_active %}Deactivate{% else %}Activate{% endif %}
+                    </button>
+                </form>
+                {% endif %}
+            </td>
+        </tr>
+    {% empty %}
+        <tr><td colspan="7" class="text-center text-muted">No accounts match.</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endblock %}

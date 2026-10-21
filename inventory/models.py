@@ -4,6 +4,7 @@ from django.conf import settings
 
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
+    code = models.CharField(max_length=20, blank=True, default='')
     description = models.TextField(blank=True)
 
     class Meta:
@@ -27,11 +28,13 @@ class Supplier(models.Model):
 
 class Product(models.Model):
     name = models.CharField(max_length=200)
+    brand = models.CharField(max_length=80, blank=True, default='')
     sku = models.CharField(max_length=50, unique=True)
     barcode = models.CharField(max_length=100, unique=True, blank=True, null=True)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='products')
     supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True, related_name='products')
     price = models.DecimalField(max_digits=10, decimal_places=2)
+    cost_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     quantity = models.PositiveIntegerField(default=0)
     reorder_level = models.PositiveIntegerField(default=10)
     max_stock_level = models.PositiveIntegerField(default=100)
@@ -46,6 +49,35 @@ class Product(models.Model):
         return self.quantity <= self.reorder_level
 
     @property
+    def is_out_of_stock(self):
+        return self.quantity == 0
+
+    @property
+    def stock_status(self):
+        if self.quantity == 0:
+            return 'OUT'
+        if self.quantity <= self.reorder_level:
+            return 'LOW'
+        return 'OK'
+
+    @property
+    def stock_value(self):
+        """Value of units on hand at selling price."""
+        return self.quantity * self.price
+
+    @property
+    def stock_cost_value(self):
+        """Value of units on hand at cost."""
+        return self.quantity * self.cost_price
+
+    @property
+    def margin_percent(self):
+        """Gross margin on the selling price; None when cost price is unknown."""
+        if not self.cost_price or not self.price:
+            return None
+        return round((self.price - self.cost_price) / self.price * 100, 1)
+
+    @property
     def suggested_reorder_quantity(self):
         """How much to order to reach max_stock_level from current quantity."""
         suggestion = self.max_stock_level - self.quantity
@@ -53,12 +85,11 @@ class Product(models.Model):
 
     @property
     def quantity_on_order(self):
-        """Total quantity still pending across open (PENDING) purchase orders."""
-        from django.db.models import Sum
-        total = self.purchase_order_items.filter(
-            purchase_order__status='PENDING'
-        ).aggregate(Sum('quantity_ordered'))['quantity_ordered__sum']
-        return total or 0
+        """Units still outstanding on open purchase orders (pending or partially received)."""
+        items = self.purchase_order_items.filter(
+            purchase_order__status__in=['PENDING', 'PARTIALLY_RECEIVED']
+        )
+        return sum(item.quantity_remaining for item in items)
 
     @property
     def expected_stock(self):

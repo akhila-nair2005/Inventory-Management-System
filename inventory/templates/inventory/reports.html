@@ -1,101 +1,312 @@
 {% extends 'base.html' %}
+{% load stockms_tags %}
 {% block title %}Reports{% endblock %}
 {% block content %}
 
-<h2 class="mb-4">Reports & Analytics</h2>
+<div class="page-header">
+    <div>
+        <h2>Reports &amp; Analytics</h2>
+        <div class="text-muted small">Inventory, sales, purchasing, demand forecast and e-mail activity</div>
+    </div>
+    <button class="btn btn-outline-secondary btn-sm" onclick="window.print()"><i class="bi bi-printer me-1"></i>Print</button>
+</div>
 
-<div class="row mb-4">
-    <div class="col-md-4">
-        <div class="card kpi-card text-center">
-            <div class="card-body">
-                <i class="bi bi-wallet2 fs-2 text-primary"></i>
-                <h3 class="mt-2 mb-0">₹{{ total_inventory_value }}</h3>
-                <p class="text-muted small mb-0">Total Inventory Value</p>
-            </div>
-        </div>
+<ul class="nav nav-tabs mb-3" id="reportTabs" role="tablist">
+    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-inventory" type="button">Inventory &amp; Low Stock</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-sales" type="button">Sales Analytics</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-purchases" type="button">Purchase History</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-demand" type="button">Future Demand</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-emails" type="button">E-mail Log</button></li>
+</ul>
+
+<div class="tab-content">
+
+{# ============================================================ Inventory #}
+<div class="tab-pane fade show active" id="tab-inventory">
+    <div class="row g-3 mb-3">
+        <div class="col-md-3"><div class="card kpi-card"><div class="card-body">
+            <div class="kpi-label">Stock value (retail)</div><div class="kpi-value">{{ total_inventory_value|inr:0 }}</div>
+        </div></div></div>
+        <div class="col-md-3"><div class="card kpi-card"><div class="card-body">
+            <div class="kpi-label">Stock value (cost)</div><div class="kpi-value">{{ inventory_cost_value|inr:0 }}</div>
+        </div></div></div>
+        <div class="col-md-3"><div class="card kpi-card"><div class="card-body">
+            <div class="kpi-label">Potential gross profit</div><div class="kpi-value text-success">{{ potential_profit|inr:0 }}</div>
+        </div></div></div>
+        <div class="col-md-3"><div class="card kpi-card"><div class="card-body">
+            <div class="kpi-label">Below reorder level</div><div class="kpi-value text-danger">{{ low_stock_products|length }}</div>
+        </div></div></div>
     </div>
-    <div class="col-md-4">
-        <div class="card kpi-card text-center">
-            <div class="card-body">
-                <i class="bi bi-exclamation-triangle fs-2 text-danger"></i>
-                <h3 class="mt-2 mb-0">{{ low_stock_products|length }}</h3>
-                <p class="text-muted small mb-0">Products Below Reorder Level</p>
-            </div>
-        </div>
+
+    <div class="panel mb-3">
+        <div class="panel-title">Products Needing Reorder</div>
+        <div class="panel-sub">At or below reorder level</div>
+        <table class="table table-sm mb-0">
+            <thead><tr><th>Product</th><th>Supplier</th><th class="text-end">Stock</th><th class="text-end">Reorder level</th><th class="text-end">On order</th><th class="text-end">Suggested qty</th><th></th></tr></thead>
+            <tbody>
+            {% for p in low_stock_products %}
+                <tr>
+                    <td>{{ p.name }}{% if p.quantity == 0 %} <span class="badge bg-danger">Out</span>{% endif %}</td>
+                    <td>{{ p.supplier|default:"-" }}</td>
+                    <td class="text-end text-danger">{{ p.quantity }}</td>
+                    <td class="text-end">{{ p.reorder_level }}</td>
+                    <td class="text-end">{{ p.quantity_on_order }}</td>
+                    <td class="text-end">{{ p.suggested_reorder_quantity }}</td>
+                    <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{% url 'purchase_order_create' %}?product={{ p.pk }}">Order</a></td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="7" class="text-center text-muted">All stock levels healthy.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
     </div>
-    <div class="col-md-4">
-        <div class="card kpi-card text-center">
-            <div class="card-body">
-                <i class="bi bi-star-fill fs-2 text-warning"></i>
-                <h3 class="mt-2 mb-0">{{ top_products.0.product__name|default:"—" }}</h3>
-                <p class="text-muted small mb-0">Best-Selling Product</p>
-            </div>
+
+    <div class="panel">
+        <div class="panel-title">Full Stock Valuation</div>
+        <div class="table-responsive">
+        <table class="table table-sm mb-0">
+            <thead><tr><th>Product</th><th>Category</th><th class="text-end">Qty</th><th class="text-end">Cost</th><th class="text-end">Price</th><th class="text-end">Margin</th><th class="text-end">Stock value (retail)</th></tr></thead>
+            <tbody>
+            {% for p in products %}
+                <tr>
+                    <td>{{ p.name }}</td><td>{{ p.category|default:"-" }}</td>
+                    <td class="text-end">{{ p.quantity }}</td>
+                    <td class="text-end">{{ p.cost_price|inr:0 }}</td>
+                    <td class="text-end">{{ p.price|inr:0 }}</td>
+                    <td class="text-end">{% if p.margin_percent is not None %}{{ p.margin_percent }}%{% else %}-{% endif %}</td>
+                    <td class="text-end">{{ p.stock_value|inr:0 }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
         </div>
     </div>
 </div>
 
-<div class="card mb-4">
-    <div class="card-body">
-        <h5 class="card-title">Revenue — Last 14 Days</h5>
-        <canvas id="revenueChart" height="80"></canvas>
+{# ============================================================ Sales #}
+<div class="tab-pane fade" id="tab-sales">
+    <div class="row g-3 mb-3">
+        <div class="col-md-3"><div class="card kpi-card"><div class="card-body">
+            <div class="kpi-label">All-time revenue</div><div class="kpi-value">{{ totals.all_time|inr:0 }}</div>
+            <div class="kpi-sub">{{ totals.invoice_count }} invoices</div>
+        </div></div></div>
+        <div class="col-md-3"><div class="card kpi-card"><div class="card-body">
+            <div class="kpi-label">This month</div><div class="kpi-value text-success">{{ totals.this_month|inr:0 }}</div>
+        </div></div></div>
+        <div class="col-md-3"><div class="card kpi-card"><div class="card-body">
+            <div class="kpi-label">Gross profit this month</div><div class="kpi-value">{{ totals.month_profit|inr:0 }}</div>
+        </div></div></div>
+        <div class="col-md-3"><div class="card kpi-card"><div class="card-body">
+            <div class="kpi-label">Today</div><div class="kpi-value">{{ totals.today|inr:0 }}</div>
+        </div></div></div>
     </div>
-</div>
 
-<div class="row">
-    <div class="col-md-6 mb-4">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Top 5 Best-Selling Products</h5>
-                <table class="table table-sm">
-                    <thead><tr><th>Product</th><th>Units Sold</th></tr></thead>
+    <div class="row g-3 mb-3">
+        <div class="col-lg-8"><div class="panel">
+            <div class="panel-title">Monthly Revenue &amp; Profit</div>
+            <div class="chart-box"><canvas id="salesMonthlyChart"></canvas></div>
+        </div></div>
+        <div class="col-lg-4"><div class="panel">
+            <div class="panel-title">Sales by Category</div>
+            <div class="panel-sub">Before tax</div>
+            <div class="chart-box"><canvas id="salesCategoryChart"></canvas></div>
+        </div></div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-lg-7"><div class="panel">
+            <div class="panel-title">Month by Month</div>
+            <table class="table table-sm mb-0">
+                <thead><tr><th>Month</th><th class="text-end">Invoices</th><th class="text-end">Units</th><th class="text-end">Revenue</th><th class="text-end">Gross profit</th></tr></thead>
+                <tbody>
+                {% for m in monthly_sales %}
+                    <tr><td>{{ m.label }}</td><td class="text-end">{{ m.invoices }}</td><td class="text-end">{{ m.units }}</td>
+                        <td class="text-end">{{ m.revenue|inr:0 }}</td><td class="text-end">{{ m.profit|inr:0 }}</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div></div>
+        <div class="col-lg-5">
+            <div class="panel mb-3">
+                <div class="panel-title">Top 5 Best-Selling Products</div>
+                <table class="table table-sm mb-0">
+                    <thead><tr><th>Product</th><th class="text-end">Units</th><th class="text-end">Revenue</th></tr></thead>
                     <tbody>
-                        {% for p in top_products %}
-                        <tr><td>{{ p.product__name }}</td><td>{{ p.total_sold }}</td></tr>
-                        {% empty %}
-                        <tr><td colspan="2" class="text-center">No sales data yet.</td></tr>
-                        {% endfor %}
+                    {% for p in top_products %}
+                        <tr><td>{{ p.product__name }}</td><td class="text-end">{{ p.units }}</td><td class="text-end">{{ p.revenue|inr:0 }}</td></tr>
+                    {% empty %}
+                        <tr><td colspan="3" class="text-center text-muted">No sales data yet.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="panel">
+                <div class="panel-title">Payment Methods</div>
+                <table class="table table-sm mb-0">
+                    <tbody>
+                    {% for label, amount in by_payment %}
+                        <tr><td>{{ label }}</td><td class="text-end">{{ amount|inr:0 }}</td></tr>
+                    {% endfor %}
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
-    <div class="col-md-6 mb-4">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Products Needing Reorder</h5>
-                <table class="table table-sm">
-                    <thead><tr><th>Product</th><th>Stock</th><th>Reorder Level</th></tr></thead>
-                    <tbody>
-                        {% for p in low_stock_products %}
-                        <tr><td>{{ p.name }}</td><td class="text-danger">{{ p.quantity }}</td><td>{{ p.reorder_level }}</td></tr>
-                        {% empty %}
-                        <tr><td colspan="3" class="text-center">All stock levels healthy.</td></tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+</div>
+
+{# ============================================================ Purchases #}
+<div class="tab-pane fade" id="tab-purchases">
+    <div class="row g-3 mb-3">
+        <div class="col-md-4"><div class="card kpi-card"><div class="card-body">
+            <div class="kpi-label">Spend on goods received</div><div class="kpi-value">{{ procurement_spend|inr:0 }}</div>
+        </div></div></div>
+        <div class="col-md-8"><div class="panel">
+            <div class="panel-title">Spend by Supplier</div>
+            <table class="table table-sm mb-0"><tbody>
+            {% for name, amount in supplier_spend %}
+                <tr><td>{{ name }}</td><td class="text-end">{{ amount|inr:0 }}</td></tr>
+            {% empty %}
+                <tr><td class="text-muted text-center">No purchases received yet.</td></tr>
+            {% endfor %}
+            </tbody></table>
+        </div></div>
+    </div>
+    <div class="panel">
+        <div class="panel-title">Purchase Orders</div>
+        <div class="table-responsive">
+        <table class="table table-sm mb-0">
+            <thead><tr><th>Order #</th><th>Supplier</th><th>Date</th><th>Status</th><th class="text-end">Order total</th><th class="text-end">Received value</th></tr></thead>
+            <tbody>
+            {% for o in orders %}
+                <tr>
+                    <td><a href="{% url 'purchase_order_detail' o.pk %}">{{ o.order_number }}</a></td>
+                    <td>{{ o.supplier.name }}</td>
+                    <td>{{ o.order_date|date:"d M Y" }}</td>
+                    <td>
+                        {% if o.status == 'PENDING' %}<span class="badge bg-warning text-dark">Pending</span>
+                        {% elif o.status == 'PARTIALLY_RECEIVED' %}<span class="badge bg-info">Partial</span>
+                        {% elif o.status == 'RECEIVED' %}<span class="badge bg-success">Received</span>
+                        {% else %}<span class="badge bg-secondary">Cancelled</span>{% endif %}
+                    </td>
+                    <td class="text-end">{{ o.grand_total|inr:0 }}</td>
+                    <td class="text-end">{{ o.total_value_received|inr:0 }}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="6" class="text-center text-muted">No purchase orders yet.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
         </div>
     </div>
 </div>
 
+{# ============================================================ Demand #}
+<div class="tab-pane fade" id="tab-demand">
+    <div class="panel">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+            <div>
+                <div class="panel-title">Next-Month Demand &amp; Recommended Restock</div>
+                <div class="panel-sub">Average of Linear Regression and Moving Average, based on the last 6 completed months of sales.</div>
+            </div>
+            <a href="{% url 'forecast_page' %}" class="btn btn-sm btn-outline-dark">Open forecasting</a>
+        </div>
+        <div class="table-responsive">
+        <table class="table table-sm mb-0">
+            <thead><tr><th>Product</th><th class="text-end">Stock</th><th class="text-end">On order</th><th class="text-end">Linear reg.</th><th class="text-end">Moving avg.</th><th class="text-end">Forecast</th><th>Trend</th><th class="text-end">Restock</th></tr></thead>
+            <tbody>
+            {% for f in forecasts %}
+                <tr>
+                    <td>{{ f.name }}</td>
+                    <td class="text-end">{{ f.current_stock }}</td>
+                    <td class="text-end">{{ f.on_order }}</td>
+                    <td class="text-end">{{ f.next_month_lr }}</td>
+                    <td class="text-end">{{ f.next_month_ma }}</td>
+                    <td class="text-end fw-semibold">{{ f.blended_next_month }}</td>
+                    <td>{% if f.trend == 'UPWARD' %}<span class="text-success">&#9650; Up</span>{% elif f.trend == 'DOWNWARD' %}<span class="text-danger">&#9660; Down</span>{% else %}<span class="text-muted">&#9644; Stable</span>{% endif %}</td>
+                    <td class="text-end">{% if f.recommended_restock %}<span class="badge bg-danger">+{{ f.recommended_restock }}</span>{% else %}<span class="text-muted">-</span>{% endif %}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="8" class="text-center text-muted">Not enough sales history yet.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+
+{# ============================================================ E-mails #}
+<div class="tab-pane fade" id="tab-emails">
+    <div class="panel">
+        <div class="d-flex justify-content-between">
+            <div>
+                <div class="panel-title">Latest 25 E-mails</div>
+                <div class="panel-sub">Every alert, purchase order and report sent through SMTP</div>
+            </div>
+            <a href="{% url 'email_log_list' %}" class="btn btn-sm btn-outline-dark align-self-start">Full log</a>
+        </div>
+        <table class="table table-sm mb-0">
+            <thead><tr><th>When</th><th>Type</th><th>To</th><th>Subject</th><th>Status</th></tr></thead>
+            <tbody>
+            {% for e in recent_emails %}
+                <tr>
+                    <td class="text-nowrap small">{{ e.created_at|date:"d M, H:i" }}</td>
+                    <td><span class="badge bg-light text-dark border">{{ e.get_alert_type_display }}</span></td>
+                    <td class="small">{{ e.recipient_email }}</td>
+                    <td class="small">{{ e.subject }}</td>
+                    <td>{% if e.status == 'SENT' %}<span class="badge bg-success">Sent</span>{% else %}<span class="badge bg-danger">Failed</span>{% endif %}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="5" class="text-center text-muted">No e-mails sent yet.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+</div>
+
+{{ chart_data|json_script:"report-data" }}
+{% endblock %}
+
+{% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script>
-    const ctx = document.getElementById('revenueChart').getContext('2d');
-    new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: {{ revenue_labels|safe }},
-            datasets: [{
-                label: 'Revenue (₹)',
-                data: {{ revenue_values|safe }},
-                backgroundColor: '#0d6efd',
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: { legend: { display: false } }
-        }
-    });
-</script>
+(function () {
+    const data = JSON.parse(document.getElementById('report-data').textContent);
+    const rupee = (v) => '\u20B9' + Number(v).toLocaleString('en-IN');
+    let drawn = false;
 
+    function drawSalesCharts() {
+        if (drawn) return;
+        drawn = true;
+        new Chart(document.getElementById('salesMonthlyChart'), {
+            type: 'bar',
+            data: {
+                labels: data.monthly.labels,
+                datasets: [
+                    { label: 'Revenue', data: data.monthly.revenue, backgroundColor: '#475569', borderRadius: 4 },
+                    { type: 'line', label: 'Gross profit', data: data.monthly.profit, borderColor: '#16a34a', backgroundColor: '#16a34a', tension: .25 },
+                ],
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } },
+                           tooltip: { callbacks: { label: (c) => c.dataset.label + ': ' + rupee(c.parsed.y) } } },
+                scales: { y: { beginAtZero: true, ticks: { callback: (v) => rupee(v) } } },
+            },
+        });
+        new Chart(document.getElementById('salesCategoryChart'), {
+            type: 'doughnut',
+            data: { labels: data.category.labels,
+                    datasets: [{ data: data.category.values, backgroundColor: ['#0f172a', '#2563eb', '#16a34a', '#f59e0b', '#9333ea', '#dc2626'] }] },
+            options: { responsive: true, maintainAspectRatio: false,
+                       plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } },
+                                  tooltip: { callbacks: { label: (c) => c.label + ': ' + rupee(c.parsed) } } } },
+        });
+    }
+
+    // Charts in hidden tabs have no size, so draw them the first time the tab is opened.
+    document.querySelector('[data-bs-target="#tab-sales"]').addEventListener('shown.bs.tab', drawSalesCharts);
+})();
+</script>
 {% endblock %}

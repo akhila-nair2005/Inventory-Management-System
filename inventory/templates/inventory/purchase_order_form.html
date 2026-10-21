@@ -2,7 +2,11 @@
 {% block title %}New Purchase Order{% endblock %}
 {% block content %}
 
-<h2 class="mb-4">New Purchase Order</h2>
+<div class="page-header"><h2>New Purchase Order</h2></div>
+
+{% if prefill %}
+<div class="alert alert-info">Pre-filled from the forecast: <strong>{{ prefill.product.name }}</strong>. Review the quantity and unit cost, then create the order.</div>
+{% endif %}
 
 <form method="post">
     {% csrf_token %}
@@ -12,7 +16,7 @@
             <select name="supplier" class="form-select" required>
                 <option value="">-- Select Supplier --</option>
                 {% for s in suppliers %}
-                    <option value="{{ s.id }}">{{ s.name }}</option>
+                    <option value="{{ s.id }}" {% if prefill and prefill.supplier_id == s.id %}selected{% endif %}>{{ s.name }}</option>
                 {% endfor %}
             </select>
         </div>
@@ -44,24 +48,27 @@
 
     <hr>
     <h5>Items to Order</h5>
-    <p class="text-muted small">Tip: check the Products page for each item's "Suggested Order Qty" before filling this in.</p>
+    <p class="text-muted small">Unit cost is filled from the product's cost price; adjust it to match the supplier's quote.</p>
     <div id="item-rows">
         <div class="row mb-2 item-row">
             <div class="col-md-5">
-                <select name="product" class="form-select" required>
+                <select name="product" class="form-select product-select" required>
                     <option value="">-- Select Product --</option>
                     {% for p in products %}
-                        <option value="{{ p.id }}">
+                        <option value="{{ p.id }}" data-cost="{{ p.cost_price }}" data-suggested="{{ p.suggested_reorder_quantity }}"
+                                {% if prefill and prefill.product.id == p.id %}selected{% endif %}>
                             {{ p.name }} (Stock: {{ p.quantity }}, Suggested: {{ p.suggested_reorder_quantity }})
                         </option>
                     {% endfor %}
                 </select>
             </div>
             <div class="col-md-3">
-                <input type="number" name="quantity" class="form-control" placeholder="Quantity" min="1" required>
+                <input type="number" name="quantity" class="form-control qty-input" placeholder="Quantity" min="1" required
+                       value="{% if prefill %}{{ prefill.quantity }}{% endif %}">
             </div>
             <div class="col-md-3">
-                <input type="number" step="0.01" name="unit_cost" class="form-control" placeholder="Unit Cost (₹)" required>
+                <input type="number" step="0.01" name="unit_cost" class="form-control cost-input" placeholder="Unit Cost (₹)" required
+                       value="{% if prefill %}{{ prefill.unit_cost }}{% endif %}">
             </div>
         </div>
     </div>
@@ -80,6 +87,19 @@ function addRow() {
     newRow.querySelectorAll('select').forEach(s => s.selectedIndex = 0);
     container.appendChild(newRow);
 }
+
+// Auto-fill cost and suggested quantity when a product is chosen on an empty row
+document.getElementById('item-rows').addEventListener('change', function (e) {
+    if (!e.target.classList.contains('product-select')) return;
+    const row = e.target.closest('.item-row');
+    const opt = e.target.selectedOptions[0];
+    const cost = row.querySelector('.cost-input');
+    const qty = row.querySelector('.qty-input');
+    if (opt && opt.value) {
+        if (!cost.value && parseFloat(opt.dataset.cost) > 0) cost.value = opt.dataset.cost;
+        if (!qty.value && parseInt(opt.dataset.suggested) > 0) qty.value = opt.dataset.suggested;
+    }
+});
 </script>
 
 {% endblock %}

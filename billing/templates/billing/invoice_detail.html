@@ -1,37 +1,73 @@
 {% extends 'base.html' %}
+{% load stockms_tags %}
 {% block title %}{{ invoice.invoice_number }}{% endblock %}
 {% block content %}
 
-<a href="{% url 'invoice_list' %}" class="btn btn-sm btn-outline-secondary mb-3">← Back to Invoices</a>
-
-<div class="card">
-    <div class="card-body">
-        <h3>{{ invoice.invoice_number }}</h3>
-        <p><strong>Customer:</strong> {{ invoice.customer|default:"Walk-in" }}</p>
-        <p><strong>Status:</strong> {{ invoice.status }}</p>
-        {% if invoice.status == 'PENDING' and user.role != 'STAFF' %}
-            <a href="{% url 'mark_invoice_paid' invoice.pk %}" class="btn btn-sm btn-success">Mark as Paid</a>
+<div class="page-header">
+    <div>
+        <h2>{{ invoice.invoice_number }}
+            {% if invoice.status == 'PAID' %}<span class="badge bg-success fs-6">Paid</span>
+            {% elif invoice.status == 'PENDING' %}<span class="badge bg-warning text-dark fs-6">Pending</span>
+            {% else %}<span class="badge bg-secondary fs-6">Cancelled</span>{% endif %}
+        </h2>
+        <div class="text-muted small">{{ invoice.created_at|date:"d M Y, H:i" }} &middot; by {{ invoice.created_by|default:"-" }} &middot; {{ invoice.get_payment_method_display }}</div>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{% url 'invoice_pdf' invoice.pk %}" target="_blank" class="btn btn-dark btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i>View PDF</a>
+        <a href="{% url 'invoice_pdf' invoice.pk %}?download=1" class="btn btn-outline-dark btn-sm"><i class="bi bi-download me-1"></i>Download</a>
+        {% if invoice.customer.email %}
+        <form method="post" action="{% url 'invoice_email' invoice.pk %}" class="d-inline">{% csrf_token %}
+            <button class="btn btn-outline-secondary btn-sm"><i class="bi bi-envelope me-1"></i>E-mail to customer</button>
+        </form>
         {% endif %}
-        <p><strong>Created by:</strong> {{ invoice.created_by }}</p>
-        <p><strong>Date:</strong> {{ invoice.created_at|date:"d M Y, H:i" }}</p>
-        <hr>
-        <table class="table table-sm">
-            <thead>
-                <tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Subtotal</th></tr>
-            </thead>
-            <tbody>
-                {% for item in invoice.items.all %}
-                <tr>
-                    <td>{{ item.product.name }}</td>
-                    <td>{{ item.quantity }}</td>
-                    <td>₹{{ item.unit_price }}</td>
-                    <td>₹{{ item.subtotal }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        <h5 class="text-end">Total: ₹{{ invoice.total_amount }}</h5>
+        {% if is_manager and invoice.status == 'PENDING' %}
+            <a href="{% url 'mark_invoice_paid' invoice.pk %}" class="btn btn-success btn-sm">Mark as Paid</a>
+        {% endif %}
+        {% if is_manager and invoice.status != 'CANCELLED' %}
+        <form method="post" action="{% url 'invoice_cancel' invoice.pk %}" class="d-inline"
+              onsubmit="return confirm('Cancel this invoice and return the items to stock?');">{% csrf_token %}
+            <button class="btn btn-outline-danger btn-sm">Cancel Invoice</button>
+        </form>
+        {% endif %}
     </div>
 </div>
 
+<div class="row g-3">
+    <div class="col-lg-8">
+        <div class="panel">
+            <table class="table table-sm mb-0">
+                <thead><tr><th>Product</th><th class="text-end">Qty</th><th class="text-end">Unit price</th><th class="text-end">Subtotal</th></tr></thead>
+                <tbody>
+                {% for item in invoice.items.all %}
+                    <tr>
+                        <td>{{ item.product.name }}<div class="small text-muted">{{ item.product.sku }}</div></td>
+                        <td class="text-end">{{ item.quantity }}</td>
+                        <td class="text-end">{{ item.unit_price|inr }}</td>
+                        <td class="text-end">{{ item.subtotal|inr }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            <table class="table table-sm w-50 ms-auto mt-3 mb-0">
+                <tr><td>Subtotal</td><td class="text-end">{{ invoice.subtotal|inr }}</td></tr>
+                {% if invoice.tax_percent %}<tr><td>Tax ({{ invoice.tax_percent }}%)</td><td class="text-end">{{ invoice.tax_amount|inr }}</td></tr>{% endif %}
+                {% if invoice.discount_amount %}<tr><td>Discount</td><td class="text-end">-{{ invoice.discount_amount|inr }}</td></tr>{% endif %}
+                <tr class="fw-bold"><td>Grand total</td><td class="text-end">{{ invoice.total_amount|inr }}</td></tr>
+                {% if is_manager and invoice.total_cost %}
+                <tr class="text-muted"><td>Gross profit</td><td class="text-end">{{ invoice.gross_profit|inr }}</td></tr>
+                {% endif %}
+            </table>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="panel">
+            <div class="panel-title">Customer</div>
+            {% if invoice.customer %}
+                <p class="mb-1 fw-semibold">{{ invoice.customer.name }}</p>
+                <p class="mb-1 small">{{ invoice.customer.phone|default:"No phone" }}</p>
+                <p class="mb-1 small">{{ invoice.customer.email|default:"No e-mail" }}</p>
+            {% else %}<p class="text-muted mb-0">Walk-in customer</p>{% endif %}
+        </div>
+    </div>
+</div>
 {% endblock %}

@@ -54,4 +54,10 @@ dist/
 *.bak
 *.swp
 *.swo
-*.orig
+*.orig.venv/
+venv/
+__pycache__/
+*.py[cod]
+.env
+.env.*
+!.env.example

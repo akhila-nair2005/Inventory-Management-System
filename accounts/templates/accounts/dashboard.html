@@ -1,132 +1,346 @@
 {% extends 'base.html' %}
+{% load stockms_tags %}
 {% block title %}Dashboard{% endblock %}
 {% block content %}
 
-<h2 class="mb-4">Welcome, {{ user.username }} <span class="badge bg-secondary">{{ user.role }}</span></h2>
+<div class="page-header">
+    <div>
+        <h2>Welcome, {{ user.first_name|default:user.username }}</h2>
+        <div class="text-muted small">
+            {% if user.role == 'ADMIN' %}Admin: full control of inventory, billing, staff and audit logs.
+            {% elif user.role == 'MANAGER' %}Manager: inventory, purchasing, invoices, alerts and reports.
+            {% else %}Staff: record stock movements and process sales.{% endif %}
+        </div>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{% url 'invoice_create' %}" class="btn btn-dark btn-sm"><i class="bi bi-receipt me-1"></i>New Invoice</a>
+        <a href="{% url 'stock_movement_create' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left-right me-1"></i>Record Stock</a>
+        {% if is_manager_view %}
+        <a href="{% url 'purchase_order_create' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-truck me-1"></i>New Purchase Order</a>
+        {% endif %}
+    </div>
+</div>
 
-{% if user.role == 'ADMIN' or user.role == 'MANAGER' %}
-<div class="col-md-3 mb-3">
-    <a href="{% url 'supplier_list' %}" class="text-decoration-none">
-        <div class="card"><div class="card-body">
-            <h5 class="card-title">Suppliers</h5>
-            <p class="card-text">Manage supplier information.</p>
+{# ---------------------------------------------------------------- KPI cards #}
+{% if is_manager_view %}
+<div class="row g-3 mb-3">
+    <div class="col-sm-6 col-xl-3">
+        <div class="card kpi-card h-100"><div class="card-body d-flex gap-3">
+            <span class="kpi-icon bg-primary-subtle text-primary"><i class="bi bi-box-seam"></i></span>
+            <div>
+                <div class="kpi-label">Products &amp; Units</div>
+                <div class="kpi-value">{{ total_products }} <small class="text-muted fs-6">SKUs</small> / {{ total_units }} <small class="text-muted fs-6">units</small></div>
+                <div class="kpi-sub">Across {{ category_count }} categories</div>
+            </div>
         </div></div>
-    </a>
-</div>
-{% endif %}
-{% if user.role == 'ADMIN' %}
-    <div class="alert alert-info">
-        Admin view — full access to all inventory, billing, alerts, and audit logs.
-        <a href="/admin/" class="btn btn-sm btn-outline-primary ms-2">Go to Admin Panel</a>
     </div>
-    <div class="col-md-3 mb-3">
-    <a href="{% url 'audit_log_list' %}" class="text-decoration-none">
-        <div class="card"><div class="card-body">
-            <h5 class="card-title">Audit Logs</h5>
-            <p class="card-text">View system activity history.</p>
-        </div>
-    </div>
-    </a>
-</div>
-<div class="row mb-4">
-    <div class="col-md-3 mb-3">
-        <div class="card kpi-card text-center">
-            <div class="card-body">
-                <i class="bi bi-box-seam fs-2 text-primary"></i>
-                <h3 class="mt-2 mb-0">{{ total_products }}</h3>
-                <p class="text-muted small mb-0">Total Products</p>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card kpi-card h-100"><div class="card-body d-flex gap-3">
+            <span class="kpi-icon bg-success-subtle text-success"><i class="bi bi-cash-coin"></i></span>
+            <div>
+                <div class="kpi-label">Sales This Month</div>
+                <div class="kpi-value text-success">{{ revenue_month|inr:0 }}</div>
+                <div class="kpi-sub">Profit {{ profit_month|inr:0 }} &middot; all-time {{ revenue_total|inr:0 }}</div>
             </div>
-        </div>
+        </div></div>
     </div>
-    <div class="col-md-3 mb-3">
-        <div class="card kpi-card text-center">
-            <div class="card-body">
-                <i class="bi bi-exclamation-triangle fs-2 text-danger"></i>
-                <h3 class="mt-2 mb-0">{{ low_stock_count }}</h3>
-                <p class="text-muted small mb-0">Low Stock Items</p>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card kpi-card h-100"><div class="card-body d-flex gap-3">
+            <span class="kpi-icon bg-info-subtle text-info"><i class="bi bi-truck"></i></span>
+            <div>
+                <div class="kpi-label">Procurement Spend</div>
+                <div class="kpi-value">{{ procurement_spend|inr:0 }}</div>
+                <div class="kpi-sub">{{ po_count }} POs &middot; {{ pending_orders_count }} awaiting delivery</div>
             </div>
-        </div>
+        </div></div>
     </div>
-    <div class="col-md-3 mb-3">
-        <div class="card kpi-card text-center">
-            <div class="card-body">
-                <i class="bi bi-truck fs-2 text-warning"></i>
-                <h3 class="mt-2 mb-0">{{ pending_orders_count }}</h3>
-                <p class="text-muted small mb-0">Pending Purchase Orders</p>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card kpi-card h-100"><div class="card-body d-flex gap-3">
+            <span class="kpi-icon bg-warning-subtle text-warning"><i class="bi bi-exclamation-triangle"></i></span>
+            <div>
+                <div class="kpi-label">Stock Alerts</div>
+                <div class="kpi-value"><span class="text-warning">{{ low_stock_count }}</span> Low &middot; <span class="text-danger">{{ out_of_stock_count }}</span> Out</div>
+                <div class="kpi-sub">{{ emails_sent }} alert e-mails dispatched</div>
             </div>
-        </div>
-    </div>
-    <div class="col-md-3 mb-3">
-        <div class="card kpi-card text-center">
-            <div class="card-body">
-                <i class="bi bi-cash-coin fs-2 text-success"></i>
-                <h3 class="mt-2 mb-0">₹{{ todays_sales }}</h3>
-                <p class="text-muted small mb-0">Today's Sales</p>
-            </div>
-        </div>
+        </div></div>
     </div>
 </div>
-{% elif user.role == 'MANAGER' %}
-    <div class="alert alert-info">
-        Manager view — manage inventory, invoices, and resolve stock alerts.
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-3">
+        <div class="card kpi-card h-100"><div class="card-body">
+            <div class="kpi-label">Today's Sales</div>
+            <div class="kpi-value">{{ todays_sales|inr:0 }}</div>
+            <div class="kpi-sub">{{ todays_invoice_count }} invoice{{ todays_invoice_count|pluralize }} today</div>
+        </div></div>
     </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card kpi-card h-100"><div class="card-body">
+            <div class="kpi-label">Inventory Value (at cost)</div>
+            <div class="kpi-value">{{ inventory_cost_value|inr:0 }}</div>
+            <div class="kpi-sub">Retail value {{ inventory_retail_value|inr:0 }}</div>
+        </div></div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card kpi-card h-100"><div class="card-body">
+            <div class="kpi-label">Restock Recommended</div>
+            <div class="kpi-value">{{ restock_needed }} <small class="text-muted fs-6">product{{ restock_needed|pluralize }}</small></div>
+            <div class="kpi-sub"><a href="{% url 'forecast_page' %}">See forecast &rarr;</a></div>
+        </div></div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card kpi-card h-100"><div class="card-body">
+            <div class="kpi-label">Pending Purchase Orders</div>
+            <div class="kpi-value">{{ pending_orders_count }}</div>
+            <div class="kpi-sub"><a href="{% url 'purchase_order_list' %}">View orders &rarr;</a></div>
+        </div></div>
+    </div>
+</div>
 {% else %}
-    <div class="alert alert-info">
-        Staff view — record stock movements and process sales.
-    </div>
-{% endif %}
-{% if user.role == 'ADMIN' or user.role == 'MANAGER' %}
-<div class="col-md-3 mb-3">
-    <a href="{% url 'purchase_order_list' %}" class="text-decoration-none">
-        <div class="card"><div class="card-body">
-            <h5 class="card-title">Purchase Orders</h5>
-            <p class="card-text">Order stock from suppliers.</p>
-        </div></div>
-    </a>
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-3"><div class="card kpi-card h-100"><div class="card-body">
+        <div class="kpi-label">Today's Sales</div>
+        <div class="kpi-value text-success">{{ todays_sales|inr:0 }}</div>
+        <div class="kpi-sub">{{ todays_invoice_count }} invoice{{ todays_invoice_count|pluralize }}</div>
+    </div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="card kpi-card h-100"><div class="card-body">
+        <div class="kpi-label">Products in Catalogue</div>
+        <div class="kpi-value">{{ total_products }}</div>
+        <div class="kpi-sub">{{ total_units }} units on hand</div>
+    </div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="card kpi-card h-100"><div class="card-body">
+        <div class="kpi-label">Low Stock</div>
+        <div class="kpi-value text-warning">{{ low_stock_count }}</div>
+        <div class="kpi-sub">At or below reorder level</div>
+    </div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="card kpi-card h-100"><div class="card-body">
+        <div class="kpi-label">Out of Stock</div>
+        <div class="kpi-value text-danger">{{ out_of_stock_count }}</div>
+        <div class="kpi-sub">Cannot be sold until restocked</div>
+    </div></div></div>
 </div>
 {% endif %}
 
-<div class="row mt-4">
-    <div class="col-md-3 mb-3">
-        <a href="{% url 'product_list' %}" class="text-decoration-none">
-            <div class="card"><div class="card-body">
-                <h5 class="card-title">Products</h5>
-                <p class="card-text">View and manage inventory items.</p>
-            </div></div>
-        </a>
+{# ---------------------------------------------------------------- charts #}
+<div class="row g-3 mb-3">
+    <div class="col-lg-6">
+        <div class="panel">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="panel-title">Stock Levels by Product</div>
+                    <div class="panel-sub">Red = out of stock &middot; Amber = at/below reorder level &middot; Grey = healthy</div>
+                </div>
+                <a href="{% url 'product_list' %}" class="small">All products</a>
+            </div>
+            <div class="chart-box"><canvas id="stockChart"></canvas></div>
+        </div>
     </div>
-    <div class="col-md-3 mb-3">
-        <a href="{% url 'invoice_list' %}" class="text-decoration-none">
-            <div class="card"><div class="card-body">
-                <h5 class="card-title">Invoices</h5>
-                <p class="card-text">Create and view sales invoices.</p>
-            </div></div>
-        </a>
+    {% if is_manager_view %}
+    <div class="col-lg-6">
+        <div class="panel">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                <div>
+                    <div class="panel-title">Demand Forecast (Linear Regression &amp; Moving Average)</div>
+                    <div class="panel-sub">6 months of sales history plus a 3-month forecast</div>
+                </div>
+                <select id="forecastSelect" class="form-select form-select-sm w-auto" style="max-width: 190px;"></select>
+            </div>
+            <div class="chart-box"><canvas id="forecastChart"></canvas></div>
+        </div>
     </div>
-    <div class="col-md-3 mb-3">
-        <a href="{% url 'alert_list' %}" class="text-decoration-none">
-            <div class="card"><div class="card-body">
-                <h5 class="card-title">Stock Alerts</h5>
-                <p class="card-text">View products below reorder level.</p>
-            </div></div>
-        </a>
+    {% else %}
+    <div class="col-lg-6">
+        <div class="panel">
+            <div class="panel-title">Active Stock Alerts <span class="badge bg-danger">{{ active_alert_total }}</span></div>
+            <div class="panel-sub">Products that need restocking</div>
+            {% include 'accounts/_alert_rows.html' %}
+        </div>
     </div>
-    <div class="col-md-3 mb-3">
-        <a href="{% url 'stock_movement_create' %}" class="text-decoration-none">
-            <div class="card"><div class="card-body">
-                <h5 class="card-title">Record Stock</h5>
-                <p class="card-text">Log stock in/out movements.</p>
-            </div></div>
-        </a>
-    </div>
-    <div class="col-md-3 mb-3">
-    <a href="{% url 'forecast_page' %}" class="text-decoration-none">
-        <div class="card"><div class="card-body">
-            <h5 class="card-title">Forecasting</h5>
-            <p class="card-text">Predict future demand per product.</p>
-        </div></div>
-    </a>
-</div>
+    {% endif %}
 </div>
 
+{% if is_manager_view %}
+<div class="row g-3 mb-3">
+    <div class="col-lg-8">
+        <div class="panel">
+            <div class="panel-title">Revenue &amp; Gross Profit, Last 6 Months</div>
+            <div class="panel-sub">Revenue includes tax; profit = items &minus; discount &minus; cost of goods</div>
+            <div class="chart-box"><canvas id="revenueChart"></canvas></div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="panel">
+            <div class="panel-title">Stock Value by Category</div>
+            <div class="panel-sub">At selling price</div>
+            <div class="chart-box"><canvas id="categoryChart"></canvas></div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{# ---------------------------------------------------------------- tables #}
+<div class="row g-3 mb-4">
+    {% if is_manager_view %}
+    <div class="col-lg-4">
+        <div class="panel">
+            <div class="panel-title">Active Stock Alerts <span class="badge bg-danger">{{ active_alert_total }}</span></div>
+            <div class="panel-sub">Latest first</div>
+            {% include 'accounts/_alert_rows.html' %}
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="panel">
+            <div class="panel-title">Top Selling Products</div>
+            <div class="panel-sub">By units sold</div>
+            <table class="table table-sm mb-0">
+                <thead><tr><th>Product</th><th class="text-end">Units</th><th class="text-end">Revenue</th></tr></thead>
+                <tbody>
+                {% for p in top_products %}
+                    <tr><td>{{ p.product__name }}</td><td class="text-end">{{ p.units }}</td><td class="text-end">{{ p.revenue|inr:0 }}</td></tr>
+                {% empty %}
+                    <tr><td colspan="3" class="text-center text-muted">No sales yet.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+    <div class="{% if is_manager_view %}col-lg-4{% else %}col-lg-6{% endif %}">
+        <div class="panel">
+            <div class="d-flex justify-content-between">
+                <div class="panel-title">Recent Invoices</div>
+                <a href="{% url 'invoice_list' %}" class="small">View all</a>
+            </div>
+            <div class="panel-sub">Latest sales</div>
+            <table class="table table-sm mb-0">
+                <thead><tr><th>Invoice</th><th>Customer</th><th class="text-end">Total</th></tr></thead>
+                <tbody>
+                {% for inv in recent_invoices %}
+                    <tr>
+                        <td><a href="{% url 'invoice_detail' inv.pk %}">{{ inv.invoice_number }}</a></td>
+                        <td>{{ inv.customer|default:"Walk-in" }}</td>
+                        <td class="text-end">{{ inv.total_amount|inr:0 }}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="3" class="text-center text-muted">No invoices yet.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{{ chart_data|json_script:"dash-data" }}
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+    const data = JSON.parse(document.getElementById('dash-data').textContent);
+    const rupee = (v) => '\u20B9' + Number(v).toLocaleString('en-IN');
+    Chart.defaults.font.size = 11;
+
+    // 1. Stock levels by SKU (colour coded)
+    new Chart(document.getElementById('stockChart'), {
+        type: 'bar',
+        data: {
+            labels: data.stock.labels,
+            datasets: [{ label: 'Units in stock', data: data.stock.values, backgroundColor: data.stock.colors, borderRadius: 4 }],
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { title: (items) => data.stock.names[items[0].dataIndex] } },
+            },
+            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+        },
+    });
+
+    {% if is_manager_view %}
+    // 2. Forecast chart with product selector
+    const forecasts = data.forecasts || [];
+    const select = document.getElementById('forecastSelect');
+    let forecastChart = null;
+
+    forecasts.forEach((f, i) => select.add(new Option(f.sku, i)));
+
+    function drawForecast(index) {
+        const f = forecasts[index];
+        if (!f) return;
+        const labels = f.history_labels.concat(f.future_labels);
+        const h = f.history_values.length;
+        const pad = (arr) => new Array(h).fill(null).concat(arr);
+        const bridge = (arr) => { const out = new Array(h - 1).fill(null); out.push(f.history_values[h - 1]); return out.concat(arr); };
+
+        const config = {
+            labels,
+            datasets: [
+                { label: 'Units sold', data: f.history_values.concat(new Array(f.future_labels.length).fill(null)),
+                  borderColor: '#0f172a', backgroundColor: '#0f172a', tension: .25 },
+                { label: 'Linear regression', data: bridge(f.lr_forecast),
+                  borderColor: '#dc2626', borderDash: [6, 4], tension: .25 },
+                { label: 'Moving average', data: bridge(f.ma_forecast),
+                  borderColor: '#2563eb', borderDash: [2, 3], tension: .25 },
+            ],
+        };
+        if (forecastChart) { forecastChart.data = config; forecastChart.update(); return; }
+        forecastChart = new Chart(document.getElementById('forecastChart'), {
+            type: 'line', data: config,
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } },
+                scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+            },
+        });
+    }
+    if (forecasts.length) {
+        drawForecast(0);
+        select.addEventListener('change', () => drawForecast(select.value));
+    } else {
+        select.style.display = 'none';
+        document.getElementById('forecastChart').parentElement.innerHTML =
+            '<p class="text-muted text-center pt-5">Not enough sales history to forecast yet (at least 3 months needed).</p>';
+    }
+
+    // 3. Revenue & profit
+    new Chart(document.getElementById('revenueChart'), {
+        type: 'bar',
+        data: {
+            labels: data.revenue.labels,
+            datasets: [
+                { label: 'Revenue', data: data.revenue.revenue, backgroundColor: '#475569', borderRadius: 4 },
+                { type: 'line', label: 'Gross profit', data: data.revenue.profit, borderColor: '#16a34a',
+                  backgroundColor: '#16a34a', tension: .25 },
+            ],
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { boxWidth: 12 } },
+                tooltip: { callbacks: { label: (c) => c.dataset.label + ': ' + rupee(c.parsed.y) } },
+            },
+            scales: { y: { beginAtZero: true, ticks: { callback: (v) => rupee(v) } } },
+        },
+    });
+
+    // 4. Stock value by category
+    new Chart(document.getElementById('categoryChart'), {
+        type: 'doughnut',
+        data: {
+            labels: data.category.labels,
+            datasets: [{ data: data.category.values,
+                backgroundColor: ['#0f172a', '#2563eb', '#16a34a', '#f59e0b', '#9333ea', '#dc2626', '#0891b2'] }],
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { boxWidth: 12 } },
+                tooltip: { callbacks: { label: (c) => c.label + ': ' + rupee(c.parsed) } },
+            },
+        },
+    });
+    {% endif %}
+})();
+</script>
 {% endblock %}
