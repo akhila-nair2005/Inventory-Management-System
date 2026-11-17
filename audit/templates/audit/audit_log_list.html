@@ -2,13 +2,15 @@
 {% block title %}Audit Logs{% endblock %}
 {% block content %}
 
-<h2 class="mb-4">Audit Logs</h2>
+<h2 class="mb-1">Audit Logs</h2>
+<p class="text-muted small mb-4"><strong>Create</strong>: new record &middot; <strong>Edit</strong>: details changed by a user &middot; <strong>Update</strong>: stock level or invoice status changed &middot; <strong>Delete</strong>: record removed. &ldquo;System&rdquo; means the change was made outside a login session.</p>
 
 <form method="get" class="row g-2 mb-4">
     <div class="col-md-3">
         <select name="action" class="form-select" onchange="this.form.submit()">
             <option value="">All Actions</option>
             <option value="CREATE" {% if action_filter == 'CREATE' %}selected{% endif %}>Create</option>
+            <option value="EDIT" {% if action_filter == 'EDIT' %}selected{% endif %}>Edit</option>
             <option value="UPDATE" {% if action_filter == 'UPDATE' %}selected{% endif %}>Update</option>
             <option value="DELETE" {% if action_filter == 'DELETE' %}selected{% endif %}>Delete</option>
         </select>
@@ -38,13 +40,21 @@
         <tr>
             <td>
                 {% if log.action == 'CREATE' %}<span class="badge bg-success">Create</span>
+                {% elif log.action == 'EDIT' %}<span class="badge bg-primary">Edit</span>
                 {% elif log.action == 'UPDATE' %}<span class="badge bg-warning text-dark">Update</span>
                 {% else %}<span class="badge bg-danger">Delete</span>{% endif %}
             </td>
             <td>{{ log.model_name }}</td>
             <td>{{ log.object_id }}</td>
-            <td>{{ log.object_repr }}</td>
-            <td>{{ log.user|default:"System" }}</td>
+            <td>
+                {{ log.object_repr }}
+                {% if log.changes %}
+                <div class="small text-muted">
+                    {% for field, pair in log.changes.items %}{{ field }}: {{ pair.0|default:"-" }} &rarr; {{ pair.1|default:"-" }}{% if not forloop.last %}; {% endif %}{% endfor %}
+                </div>
+                {% endif %}
+            </td>
+            <td>{% if log.user %}{{ log.user.get_full_name|default:log.user.username }} <span class="text-muted small">(@{{ log.user.username }})</span>{% else %}System{% endif %}</td>
             <td>{{ log.timestamp|date:"d M Y, H:i:s" }}</td>
         </tr>
         {% empty %}

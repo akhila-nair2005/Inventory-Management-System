@@ -540,10 +540,15 @@ class Command(BaseCommand):
         for product in products.values():
             entries.append((AuditLog(user=users['admin'], action='CREATE', model_name='Product',
                                      object_id=str(product.pk), object_repr=str(product)), opening))
-        for key, days_ago in [('iphone', 40), ('galaxy', 25), ('anker', 18)]:
+        for key, days_ago, field, old, new in [
+            ('iphone', 40, 'price', '124900.00', '119900.00'),
+            ('galaxy', 25, 'cost_price', '113500.00', '111000.00'),
+            ('anker', 18, 'reorder_level', '8', '10'),
+        ]:
             product = products[key]
-            entries.append((AuditLog(user=users['manager'], action='UPDATE', model_name='Product',
-                                     object_id=str(product.pk), object_repr=str(product)),
+            entries.append((AuditLog(user=users['manager'], action='EDIT', model_name='Product',
+                                     object_id=str(product.pk), object_repr=str(product),
+                                     changes={field: [old, new]}),
                             self.now - timedelta(days=days_ago)))
         for invoice in Invoice.objects.order_by('-created_at')[:25]:
             entries.append((AuditLog(user=invoice.created_by, action='CREATE', model_name='Invoice',

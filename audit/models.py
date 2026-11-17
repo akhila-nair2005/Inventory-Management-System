@@ -7,7 +7,8 @@ from django.conf import settings
 class AuditLog(models.Model):
     class Action(models.TextChoices):
         CREATE = 'CREATE', 'Create'
-        UPDATE = 'UPDATE', 'Update'
+        EDIT = 'EDIT', 'Edit'          # details changed by a user (price, name, supplier...)
+        UPDATE = 'UPDATE', 'Update'    # stock level or invoice status changed
         DELETE = 'DELETE', 'Delete'
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
